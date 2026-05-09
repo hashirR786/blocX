@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-primary: #1d9bf0;
+  --color-primaryHover: #1a8cd8;
+  --color-textMain: var(--text-main);
+  --color-textMuted: var(--text-muted);
+  --color-border: var(--border);
+}
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --surface: #ffffff;
+    --text-main: #0f1419;
+    --text-muted: #536471;
+    --border: #eff3f4;
+  }
+
+  .dark {
+    --background: #000000;
+    --surface: #000000;
+    --text-main: #e7e9ea;
+    --text-muted: #71767b;
+    --border: #2f3336;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-main);
+    min-height: 100vh;
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    -webkit-font-smoothing: antialiased;
+    transition-property: color, background-color;
+    transition-duration: 300ms;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
