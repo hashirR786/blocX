@@ -1,67 +1,68 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { TrendingUp, Activity, ShieldCheck, Search } from 'lucide-react';
 
 const RightSidebar: React.FC = () => {
+  const trends = [
+    { tag: '#PolygonAmoy', posts: '12.5K', isHot: true },
+    { tag: '#Web3Social', posts: '8,240', isHot: false },
+    { tag: '#BlocXLaunch', posts: '5,102', isHot: true },
+  ];
+
   return (
-    <div className="w-full pr-8">
-      {/* Search Bar */}
-      <div className="sticky top-0 bg-background pt-2 pb-4 z-10">
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-textMuted group-focus-within:text-primary transition-colors" />
+    <div className="h-full flex flex-col p-4 space-y-6">
+      
+      {/* Search - Glass Input */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-textMuted group-focus-within:text-white transition-colors">
+          <Search className="w-5 h-5" />
+        </div>
+        <input 
+          type="text" 
+          placeholder="Search network..." 
+          className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl py-3 pl-11 pr-4 text-white focus:outline-none focus:border-primary focus:bg-[var(--surface-hover)] transition-all placeholder:text-textMuted shadow-sm backdrop-blur-md"
+        />
+      </div>
+
+      {/* Network Stats Widget */}
+      <div className="glass-panel p-5">
+        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-accent" /> Network Status
+        </h3>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between items-center text-textMuted">
+            <span>TPS</span>
+            <span className="text-white font-mono">42.5</span>
           </div>
-          <input
-            type="text"
-            placeholder="Search"
-            className="block w-full pl-11 pr-4 py-3 bg-[#eff3f4] dark:bg-[#202327] border-none rounded-full text-textMain placeholder-textMuted focus:ring-1 focus:ring-primary focus:bg-background transition-colors outline-none"
-          />
+          <div className="flex justify-between items-center text-textMuted">
+            <span>Active Nodes</span>
+            <span className="text-green-400 font-mono flex items-center gap-1"><ShieldCheck className="w-4 h-4" /> 1,024</span>
+          </div>
+          <div className="flex justify-between items-center text-textMuted">
+            <span>Gas Price</span>
+            <span className="text-white font-mono">30 gwei</span>
+          </div>
         </div>
       </div>
 
-      {/* Trending Box */}
-      <div className="bg-[#eff3f4] dark:bg-[#16181c] rounded-2xl p-4 mb-4">
-        <h2 className="text-xl font-bold mb-4 text-textMain">What's happening</h2>
-        
+      {/* Trending Widget */}
+      <div className="glass-panel p-5 flex-1">
+        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary" /> Trending Now
+        </h3>
         <div className="space-y-4">
-          <div className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 -mx-2 rounded-xl transition-colors">
-            <div className="text-xs text-textMuted mb-0.5">Web3 • Trending</div>
-            <div className="font-bold text-textMain">#blocX</div>
-            <div className="text-xs text-textMuted mt-0.5">12.5K posts</div>
-          </div>
-          
-          <div className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 -mx-2 rounded-xl transition-colors">
-            <div className="text-xs text-textMuted mb-0.5">Technology • Trending</div>
-            <div className="font-bold text-textMain">Polygon Amoy</div>
-            <div className="text-xs text-textMuted mt-0.5">8,204 posts</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Who to follow */}
-      <div className="bg-[#eff3f4] dark:bg-[#16181c] rounded-2xl p-4">
-        <h2 className="text-xl font-bold mb-4 text-textMain">Who to follow</h2>
-        
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <img 
-                  src={`https://api.dicebear.com/7.x/identicon/svg?seed=user${i}`} 
-                  alt="Avatar" 
-                  className="w-10 h-10 rounded-full bg-border"
-                />
-                <div className="truncate">
-                  <div className="font-bold text-textMain text-sm truncate hover:underline">Web3 Builder {i}</div>
-                  <div className="text-textMuted text-sm truncate">@builder{i}</div>
-                </div>
+          {trends.map((trend, i) => (
+            <div key={i} className="group cursor-pointer">
+              <div className="flex items-center gap-2 text-textMuted text-xs mb-1">
+                <span>Trending in Web3</span>
+                {trend.isHot && <span className="text-accent text-[10px] uppercase font-bold border border-accent/30 bg-accent/10 px-1.5 rounded-sm">Hot</span>}
               </div>
-              <button className="bg-textMain text-background px-4 py-1.5 rounded-full text-sm font-bold hover:opacity-90 transition-opacity shrink-0 ml-2">
-                Follow
-              </button>
+              <div className="font-bold text-white group-hover:text-primary transition-colors text-lg">{trend.tag}</div>
+              <div className="text-textMuted text-xs mt-1">{trend.posts} posts</div>
             </div>
           ))}
         </div>
       </div>
+      
     </div>
   );
 };

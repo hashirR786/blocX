@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, User, Vote, Bell, Feather } from 'lucide-react';
+import { Home, User, Vote, Bell, Zap, LogOut } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useWallet } from '../../contexts/WalletContext';
 
@@ -9,75 +9,97 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
-  const { address, connect, isConnecting } = useWallet();
+  const { address, connect, isConnecting, disconnect } = useWallet();
   const links = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Profile', path: '/profile', icon: User },
     { name: 'Governance', path: '/governance', icon: Vote },
-    { name: 'Notifications', path: '/notifications', icon: Bell },
+    { name: 'Alerts', path: '/notifications', icon: Bell },
   ];
 
   return (
-    <aside className="h-full flex flex-col items-center xl:items-start py-4 xl:px-4 bg-background w-full">
+    <aside className="h-full w-full glass-panel flex flex-col items-center xl:items-start py-6 px-2 xl:px-5">
       {/* Logo */}
-      <div className="w-14 h-14 flex items-center justify-center xl:justify-start xl:w-full xl:px-4 mb-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full cursor-pointer transition-colors">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primaryHover bg-clip-text text-transparent tracking-tighter">
-          BlocX
+      <div className="w-full flex items-center justify-center xl:justify-start mb-8 px-2">
+        <h1 className="text-3xl font-extrabold glow-text tracking-tighter hidden xl:block">
+          blocX
         </h1>
+        <div className="xl:hidden w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+          <span className="text-white font-bold text-xl">X</span>
+        </div>
       </div>
 
-      <nav className="flex-1 w-full space-y-1 mt-2">
+      <nav className="flex-1 w-full space-y-2">
         {links.map((link) => {
           const Icon = link.icon;
           return (
-            <div key={link.path} className="w-full flex justify-center xl:justify-start">
-              <NavLink
-                to={link.path}
-                className={({ isActive }) =>
-                  cn(
-                    "inline-flex items-center gap-5 p-3 xl:px-4 xl:py-3 rounded-full transition-colors group",
-                    isActive 
-                      ? "font-bold text-textMain" 
-                      : "font-normal text-textMain hover:bg-black/10 dark:hover:bg-white/10"
-                  )
-                }
-              >
-                <Icon className="w-7 h-7" strokeWidth={2.5} />
-                <span className="hidden xl:block text-xl">{link.name}</span>
-              </NavLink>
-            </div>
+            <NavLink
+              key={link.path}
+              to={link.path}
+              className={({ isActive }) =>
+                cn(
+                  "w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 group",
+                  isActive 
+                    ? "bg-white/10 text-white shadow-inner" 
+                    : "text-textMuted hover:bg-white/5 hover:text-white"
+                )
+              }
+            >
+              <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg transition-colors")}>
+                <Icon className="w-6 h-6" strokeWidth={2} />
+              </div>
+              <span className="hidden xl:block text-lg font-medium">{link.name}</span>
+            </NavLink>
           );
         })}
         
         {/* Post Button */}
-        <div className="w-full flex justify-center xl:justify-start mt-4 px-2 xl:px-0">
-          <button onClick={onPostClick} className="w-12 h-12 xl:w-11/12 xl:h-14 bg-primary hover:bg-primaryHover text-white rounded-full flex items-center justify-center font-bold text-lg transition-colors shadow-sm">
-            <Feather className="w-6 h-6 xl:hidden" />
-            <span className="hidden xl:block">Post</span>
+        <div className="w-full mt-6 pt-6 border-t border-[var(--border)]">
+          <button 
+            onClick={onPostClick} 
+            className="w-full glass-button bg-primary/20 hover:bg-primary/40 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all group"
+          >
+            <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="hidden xl:block">New Post</span>
           </button>
         </div>
       </nav>
 
       {/* User Mini Profile / Connect Button */}
-      <div className="mt-auto w-full flex justify-center xl:justify-start mb-4 px-2 xl:px-0">
+      <div className="mt-auto w-full pt-4 border-t border-[var(--border)]">
         {address ? (
-          <div onClick={connect} className="inline-flex items-center gap-3 p-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer transition-colors w-full">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-purple-500 shrink-0 flex items-center justify-center text-white font-bold text-xs">
-              {address.slice(2, 4).toUpperCase()}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 w-full overflow-hidden">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-primary to-accent shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-lg border border-white/10">
+                {address.slice(2, 4).toUpperCase()}
+              </div>
+              <div className="hidden xl:block overflow-hidden flex-1">
+                <div className="font-bold text-white text-sm truncate">Web3 ID</div>
+                <div className="text-textMuted text-xs font-mono truncate">{address.slice(0, 6)}...{address.slice(-4)}</div>
+              </div>
             </div>
-            <div className="hidden xl:block overflow-hidden">
-              <div className="font-bold text-textMain text-sm truncate">Web3 User</div>
-              <div className="text-textMuted text-sm truncate">@{address.slice(0, 6)}...{address.slice(-4)}</div>
-            </div>
+            <button 
+              onClick={disconnect}
+              className="w-full p-2 text-red-400 hover:bg-red-500/10 rounded-xl flex items-center justify-center xl:justify-start gap-3 transition-colors text-sm font-medium"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="hidden xl:block">Disconnect</span>
+            </button>
           </div>
         ) : (
           <button 
             onClick={connect}
             disabled={isConnecting}
-            className="w-12 h-12 xl:w-full xl:h-14 bg-surface border border-border hover:bg-black/5 dark:hover:bg-white/5 text-textMain rounded-full flex items-center justify-center font-bold text-lg transition-colors shadow-sm"
+            className="w-full glass-button py-3 text-white flex items-center justify-center gap-2 font-bold"
           >
-            <span className="hidden xl:block">{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
-            <span className="xl:hidden">🦊</span>
+            {isConnecting ? (
+              <span className="hidden xl:block">Connecting...</span>
+            ) : (
+              <>
+                <span className="xl:hidden">🦊</span>
+                <span className="hidden xl:block">Connect Wallet</span>
+              </>
+            )}
           </button>
         )}
       </div>

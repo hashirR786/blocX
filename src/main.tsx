@@ -5,6 +5,7 @@ import App from './App.tsx'
 import './index.css'
 import { ThemeProvider } from './contexts/ThemeContext.tsx'
 import { WalletProvider } from './contexts/WalletContext.tsx'
+import { TransactionProvider } from './contexts/TransactionContext.tsx'
 
 const queryClient = new QueryClient()
 
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <WalletProvider>
-          <App />
+          <TransactionProvider>
+            <App />
+          </TransactionProvider>
         </WalletProvider>
       </ThemeProvider>
     </QueryClientProvider>

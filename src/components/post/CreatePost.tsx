@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
-import { Image as ImageIcon, ShieldAlert, X, Loader2 } from 'lucide-react';
+import { useTransaction } from '../../contexts/TransactionContext';
+import { Image as ImageIcon, ShieldAlert, X, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadFileToIPFS, uploadJSONToIPFS } from '../../services/ipfs';
 import { moderateContent } from '../../services/moderation';
@@ -13,6 +14,8 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
   const { address, provider } = useWallet();
+  const { setTxState, setTxMessage } = useTransaction();
+  
   const [content, setContent] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
@@ -40,6 +43,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
     if ((!content.trim() && !selectedFile) || !provider) return;
     
     setIsPublishing(true);
+    setTxState('awaiting_signature');
     
     try {
       setModError(null);
@@ -50,11 +54,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
       if (modResult.isFlagged) {
         setShowModeration(false);
         setIsPublishing(false);
+        setTxState('idle');
         setModError(modResult.reason || 'Flagged by AI Moderation');
         return;
       }
       
-      // Keep showing checking for UX feel, then hide
       await new Promise(resolve => setTimeout(resolve, 500));
       setShowModeration(false);
       
@@ -70,6 +74,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
         content: content.trim(),
         media: mediaUri,
         author: address,
+        timestamp: Date.now()
       };
       
       const metadataUri = await uploadJSONToIPFS(postMetadata);
@@ -82,54 +87,60 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
         maxPriorityFeePerGas: parseUnits('30', 'gwei'),
         maxFeePerGas: parseUnits('40', 'gwei')
       });
+      
+      setTxState('mining');
       await tx.wait(); // Wait for mining
       
+      setTxMessage("Post submitted to network successfully!");
+      setTxState('success');
+
       // Reset form
       setContent('');
       clearFile();
-      
-      // Close modal if embedded
       onClose?.();
-      
-      // Ideally, trigger a refresh of the posts list here
-      // For now, it will appear when they refresh or if we add a global event emitter
       
     } catch (error: any) {
       console.error("Failed to create post:", error);
-      alert(error.reason || error.message || "Failed to create post. Do you have a Web3 Profile?");
+      setTxMessage(error.reason || error.message || "Failed to create post.");
+      setTxState('error');
     } finally {
       setIsPublishing(false);
+      setTimeout(() => {
+        if (useTransaction().txState !== 'idle') setTxState('idle');
+      }, 3000);
     }
   };
 
   if (!address) return null;
 
   return (
-    <div className="border-b border-border p-4 bg-background">
-      <div className="flex gap-4">
+    <div className="glass-panel p-5 mb-6 relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-50 pointer-events-none" />
+      
+      <div className="flex gap-4 relative z-10">
         <img 
           src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`} 
           alt="Avatar" 
-          className="w-10 h-10 rounded-full bg-border shrink-0 cursor-pointer hover:opacity-90 transition-opacity" 
+          className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shrink-0 cursor-pointer shadow-lg" 
         />
         <div className="flex-1 min-w-0">
           <textarea 
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="What is happening?!"
-            className="w-full bg-transparent border-none focus:outline-none text-textMain text-xl resize-none placeholder:text-textMuted pt-2"
-            rows={2}
+            className="w-full bg-transparent border-none focus:outline-none text-white text-xl resize-none placeholder:text-textMuted/50 pt-2"
+            rows={content.split('\n').length > 2 ? content.split('\n').length : 2}
             disabled={isPublishing}
           />
           
           {previewUrl && (
             <div className="relative mt-2 mb-2">
-              <img src={previewUrl} alt="Upload preview" className="rounded-2xl max-h-[40vh] object-cover w-full border border-border" />
+              <img src={previewUrl} alt="Upload preview" className="rounded-xl max-h-[400px] object-cover w-full border border-[var(--border)] shadow-lg" />
               <button 
                 onClick={clearFile}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm"
+                className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 text-white rounded-lg transition-colors backdrop-blur-md"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           )}
@@ -140,10 +151,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded-lg mb-3"
+                className="flex items-center gap-2 text-accent text-sm bg-accent/10 border border-accent/20 p-3 rounded-xl mb-3 mt-2"
               >
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>AI Moderation: Checking content for safety...</span>
+                <ShieldAlert className="w-5 h-5 shrink-0" />
+                <span>AI Sentinel: Validating content integrity...</span>
               </motion.div>
             )}
             {modError && !isPublishing && (
@@ -151,15 +162,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 text-red-500 text-xs bg-red-500/10 p-2 rounded-lg mb-3"
+                className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-3 mt-2"
               >
-                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <ShieldAlert className="w-5 h-5 shrink-0" />
                 <span>{modError}</span>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="flex items-center justify-between pt-2 border-t border-transparent mt-1">
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border)] mt-2">
             <div>
               <input 
                 type="file" 
@@ -171,7 +182,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isPublishing}
-                className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50"
+                className="p-2.5 text-primary hover:bg-primary/20 rounded-xl transition-colors disabled:opacity-50 border border-transparent hover:border-primary/30"
               >
                 <ImageIcon className="w-5 h-5" />
               </button>
@@ -180,16 +191,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
             <button 
               onClick={handlePost}
               disabled={(!content.trim() && !selectedFile) || isPublishing}
-              className="px-4 py-1.5 bg-primary hover:bg-primaryHover text-white rounded-full font-bold transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
+              className="px-6 py-2.5 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20"
             >
-              {isPublishing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Posting...
-                </>
-              ) : (
-                'Post'
-              )}
+              <Zap className="w-4 h-4" />
+              {isPublishing ? 'Posting...' : 'Post'}
             </button>
           </div>
         </div>
