@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useXMTP } from '../contexts/XMTPContext';
 import { useWallet } from '../contexts/WalletContext';
 import { Client } from '@xmtp/xmtp-js';
@@ -99,6 +100,8 @@ const NewConversationModal: React.FC<{
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const Messages: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { client, isConnectingXMTP, initClient, error: xmtpError } = useXMTP();
   const { address } = useWallet();
 
@@ -235,6 +238,13 @@ const Messages: React.FC = () => {
       </div>
     );
   }
+
+  // After XMTP client is ready, ensure we stay on the messages page
+  useEffect(() => {
+    if (client && location.pathname !== '/messages') {
+      navigate('/messages');
+    }
+  }, [client, location.pathname, navigate]);
 
   // ── XMTP not initialized ─────────────────────────────────────────────────
   if (!client) {
