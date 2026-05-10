@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { usePosts } from '../hooks/usePosts';
 import PostCard from '../components/post/PostCard';
-import { Edit2, Save, X as XIcon, CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { uploadJSONToIPFS } from '../services/ipfs';
 import { Contract, parseUnits } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
@@ -171,7 +171,7 @@ const Profile: React.FC = () => {
             <div>
               <h2 className="text-xl font-bold text-textMain flex items-center gap-1">
                 {name || 'Anonymous User'}
-                {hasOnChainProfile && <CheckCircle className="w-4 h-4 text-[#1d9bf0]" title="Verified" />}
+                {hasOnChainProfile && <CheckCircle className="w-4 h-4 text-[#1d9bf0]" />}
               </h2>
               <p className="text-textMuted">@{address.slice(0, 10)}...</p>
               

@@ -8,3 +8,5 @@ cache/
 *.log
 .vscode/
 .idea/ 
+node_modules
+.vercel

@@ -1,6 +1,6 @@
 import React from 'react';
 import { MOCK_PROPOSALS } from '../services/mockData';
-import { ThumbsUp, ThumbsDown, Clock, CheckCircle } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
 
 const Governance: React.FC = () => {
   return (

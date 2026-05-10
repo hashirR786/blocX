@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
-import { Image as ImageIcon, ShieldAlert, Send, X, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, ShieldAlert, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadFileToIPFS, uploadJSONToIPFS } from '../../services/ipfs';
+import { moderateContent } from '../../services/moderation';
 import { Contract, parseUnits } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../../config/contracts';
 
@@ -15,6 +16,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
   const [content, setContent] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
+  const [modError, setModError] = useState<string | null>(null);
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,9 +42,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
     setIsPublishing(true);
     
     try {
-      // 1. Simulate AI Moderation
+      setModError(null);
+      // 1. Run AI Moderation
       setShowModeration(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const modResult = await moderateContent(content, selectedFile);
+      
+      if (modResult.isFlagged) {
+        setShowModeration(false);
+        setIsPublishing(false);
+        setModError(modResult.reason || 'Flagged by AI Moderation');
+        return;
+      }
+      
+      // Keep showing checking for UX feel, then hide
+      await new Promise(resolve => setTimeout(resolve, 500));
       setShowModeration(false);
       
       let mediaUri = null;
@@ -129,8 +142,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
                 exit={{ opacity: 0, height: 0 }}
                 className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 p-2 rounded-lg mb-3"
               >
-                <ShieldAlert className="w-4 h-4" />
+                <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>AI Moderation: Checking content for safety...</span>
+              </motion.div>
+            )}
+            {modError && !isPublishing && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-2 text-red-500 text-xs bg-red-500/10 p-2 rounded-lg mb-3"
+              >
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>{modError}</span>
               </motion.div>
             )}
           </AnimatePresence>

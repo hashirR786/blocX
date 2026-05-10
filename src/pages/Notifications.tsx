@@ -1,6 +1,6 @@
 import React from 'react';
 import { MOCK_NOTIFICATIONS } from '../services/mockData';
-import { CheckCircle, AlertTriangle, Info, Heart, MessageSquare } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Notifications: React.FC = () => {
@@ -36,7 +36,7 @@ const Notifications: React.FC = () => {
               </div>
               <div className="flex-1">
                 <p className="text-textMain mb-1">{notif.message}</p>
-                <p className="text-xs text-textMuted">{notif.timestamp}</p>
+                <p className="text-xs text-textMuted">{notif.time}</p>
               </div>
             </motion.div>
           );

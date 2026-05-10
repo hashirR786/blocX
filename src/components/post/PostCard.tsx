@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Heart, MessageSquare, Share2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../../contexts/WalletContext';
 import { CONTRACT_ADDRESSES, ABIs } from '../../config/contracts';
 import { Contract, parseUnits } from 'ethers';
+import CommentThread from './CommentThread';
+import { getComments } from '../../hooks/useComments';
 
 interface PostCardProps {
   post: any;
@@ -14,6 +16,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likes, setLikes] = useState(post.likes);
   const [isLiking, setIsLiking] = useState(false);
+  const [showThread, setShowThread] = useState(false);
+  const [commentCount, setCommentCount] = useState(() => getComments(post.id).length);
   const { provider } = useWallet();
 
   const handleLike = async () => {
@@ -78,11 +82,14 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         )}
 
         <div className="flex items-center justify-between text-textMuted max-w-md">
-          <button className="flex items-center gap-2 text-sm hover:text-primary transition-colors group">
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowThread(true); }}
+            className="flex items-center gap-2 text-sm hover:text-primary transition-colors group"
+          >
             <div className="p-2 rounded-full group-hover:bg-primary/10 -ml-2">
               <MessageSquare className="w-4 h-4" />
             </div>
-            <span>{post.comments}</span>
+            <span>{commentCount}</span>
           </button>
           
           <button 
@@ -102,6 +109,18 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showThread && (
+          <CommentThread 
+            post={post} 
+            onClose={() => {
+              setShowThread(false);
+              setCommentCount(getComments(post.id).length); // Refresh count when closing modal
+            }} 
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

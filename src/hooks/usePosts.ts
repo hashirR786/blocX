@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../contexts/WalletContext';
-import { Contract, JsonRpcProvider } from 'ethers';
+import { Contract, JsonRpcProvider, ZeroAddress } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
 import { resolveIPFSUrl } from '../services/ipfs';
 
-// Dedicated read-only provider — bypasses MetaMask's eth_getLogs limitations
+// Dedicated read-only provider
 const READ_PROVIDER = new JsonRpcProvider('https://rpc-amoy.polygon.technology');
 
 export interface Post {
@@ -21,6 +21,16 @@ export interface Post {
   media: string | null;
 }
 
+function formatTime(timestampSeconds: number): string {
+  const timeDiff = Date.now() - timestampSeconds * 1000;
+  const minsAgo = Math.floor(timeDiff / 60000);
+  const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+  if (hoursAgo > 24) return `${Math.floor(hoursAgo / 24)}d ago`;
+  if (hoursAgo > 0) return `${hoursAgo}h ago`;
+  if (minsAgo > 0) return `${minsAgo}m ago`;
+  return 'Just now';
+}
+
 export const usePosts = () => {
   const { address } = useWallet();
 
@@ -33,36 +43,26 @@ export const usePosts = () => {
         READ_PROVIDER
       );
 
-      // Get current block and query last 50,000 blocks (~1-2 days on Amoy)
-      const currentBlock = await READ_PROVIDER.getBlockNumber();
-      const fromBlock = Math.max(0, currentBlock - 50000);
-
-      console.log(`[BlocX] Fetching posts from block ${fromBlock} to ${currentBlock}...`);
-
-      const filter = socialContract.filters.PostCreated();
-      const logs = await socialContract.queryFilter(filter, fromBlock, 'latest');
-
-      console.log(`[BlocX] Found ${logs.length} post event(s) on-chain.`);
-
+      // Instead of querying events (which requires eth_getLogs and has RPC block limits),
+      // we read posts directly from the public mapping by iterating IDs.
+      // Posts start at ID=1. We stop when the author is the zero address.
       const posts: Post[] = [];
+      const MAX_POSTS = 100; // Safety cap
+      
+      console.log('[BlocX] Fetching posts by direct contract reads...');
 
-      for (let i = logs.length - 1; i >= 0; i--) {
-        const log = logs[i] as any;
-        const postId = log.args.postId;
-        const author = log.args.author;
-        const contentHash = log.args.contentHash;
-
-        const timestampMs = Number(log.args.timestamp) * 1000;
-        const timeDiff = Date.now() - timestampMs;
-        const minsAgo = Math.floor(timeDiff / 60000);
-        const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
-        let timeString = 'Just now';
-        if (hoursAgo > 24) timeString = `${Math.floor(hoursAgo / 24)}d ago`;
-        else if (hoursAgo > 0) timeString = `${hoursAgo}h ago`;
-        else if (minsAgo > 0) timeString = `${minsAgo}m ago`;
-
+      for (let postId = 1; postId <= MAX_POSTS; postId++) {
         try {
-          const postState = await socialContract.posts(postId);
+          const postData = await socialContract.posts(postId);
+          
+          // If author is zero address, this post doesn't exist — we've reached the end
+          if (!postData || postData.author === ZeroAddress || postData.author === '0x0000000000000000000000000000000000000000') {
+            console.log(`[BlocX] No post at ID ${postId}, stopping. Total: ${posts.length} post(s).`);
+            break;
+          }
+
+          const author = postData.author;
+          const contentHash = postData.contentHash;
 
           let isLiked = false;
           if (address) {
@@ -86,7 +86,7 @@ export const usePosts = () => {
                 }
               }
             } catch (ipfsError) {
-              console.warn(`[BlocX] Could not fetch IPFS metadata for post ${postId}:`, ipfsError);
+              console.warn(`[BlocX] IPFS fetch failed for post ${postId}:`, ipfsError);
             }
           }
 
@@ -97,20 +97,22 @@ export const usePosts = () => {
               avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${author}`,
             },
             content,
-            timestamp: timeString,
-            likes: Number(postState.likeCount),
+            timestamp: formatTime(Number(postData.timestamp)),
+            likes: Number(postData.likeCount),
             comments: 0,
             isLiked,
             media,
           });
         } catch (error) {
-          console.error(`[BlocX] Failed to load post ${postId}:`, error);
+          console.error(`[BlocX] Error at post ID ${postId}:`, error);
+          break;
         }
       }
 
-      return posts;
+      // Return newest first
+      return posts.reverse();
     },
-    enabled: true, // Works even without MetaMask connected
-    refetchInterval: 20000,
+    enabled: true,
+    refetchInterval: 30000,
   });
 };
