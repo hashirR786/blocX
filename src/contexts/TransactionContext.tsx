@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 
 export type TransactionState = 'idle' | 'awaiting_signature' | 'mining' | 'success' | 'error';
 

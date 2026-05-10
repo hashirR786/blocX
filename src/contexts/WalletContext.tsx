@@ -56,8 +56,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const connect = async () => {
     const ethereum = (window as any).ethereum;
+    
     if (!ethereum) {
-      alert("Please install MetaMask to use this feature!");
+      // On mobile, MetaMask only injects window.ethereum inside its own browser.
+      // Deep-link the user into MetaMask's built-in browser pointing to this app.
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        const appUrl = window.location.host; // e.g. bloc-x.vercel.app
+        const deepLink = `https://metamask.app.link/dapp/${appUrl}`;
+        window.location.href = deepLink;
+        return;
+      }
+      // Desktop: just prompt to install
+      window.open('https://metamask.io/download/', '_blank');
       return;
     }
     
@@ -66,7 +77,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       setAddress(accounts[0]);
       
-      // Optionally switch to Polygon Amoy network
+      // Switch to Polygon Amoy network
       try {
         await ethereum.request({
           method: 'wallet_switchEthereumChain',
@@ -94,7 +105,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (error: any) {
       console.error('Failed to connect wallet:', error);
-      alert(`Connection failed: ${error.message || "Please open the MetaMask extension manually to check for pending requests."}`);
     } finally {
       setIsConnecting(false);
     }

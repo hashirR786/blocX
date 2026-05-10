@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, User, Vote, Bell, Zap, LogOut } from 'lucide-react';
+import { Home, User, Vote, Bell, Zap, LogOut, MessageSquare } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useWallet } from '../../contexts/WalletContext';
 
@@ -13,9 +13,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const links = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Messages', path: '/messages', icon: MessageSquare },
     { name: 'Governance', path: '/governance', icon: Vote },
     { name: 'Alerts', path: '/notifications', icon: Bell },
   ];
+
 
   return (
     <aside className="h-full w-full glass-panel flex flex-col items-center xl:items-start py-6 px-2 xl:px-5">

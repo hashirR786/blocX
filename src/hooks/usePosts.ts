@@ -12,6 +12,7 @@ export interface Post {
   author: {
     address: string;
     avatar: string;
+    name: string;
   };
   content: string;
   timestamp: string;
@@ -42,12 +43,21 @@ export const usePosts = () => {
         ABIs.social,
         READ_PROVIDER
       );
+      
+      const profileContract = new Contract(
+        CONTRACT_ADDRESSES.profile,
+        ABIs.profile,
+        READ_PROVIDER
+      );
 
       // Instead of querying events (which requires eth_getLogs and has RPC block limits),
       // we read posts directly from the public mapping by iterating IDs.
       // Posts start at ID=1. We stop when the author is the zero address.
       const posts: Post[] = [];
       const MAX_POSTS = 100; // Safety cap
+      
+      // Simple cache for profiles to avoid redundant IPFS/Contract calls
+      const profileCache: Record<string, {name: string, avatar: string}> = {};
       
       console.log('[BlocX] Fetching posts by direct contract reads...');
 
@@ -71,6 +81,40 @@ export const usePosts = () => {
 
           let content = 'Decentralized post';
           let media: string | null = null;
+          let authorName = 'Web3 User';
+          let authorAvatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${author}`;
+
+          // Check if it's the current user first (instant local load)
+          if (address && author.toLowerCase() === address.toLowerCase()) {
+            const localName = localStorage.getItem(`profileName_${address}`);
+            const localAvatar = localStorage.getItem(`profileAvatar_${address}`);
+            if (localName) authorName = localName;
+            if (localAvatar) authorAvatar = localAvatar;
+          } else {
+            // Check cache
+            if (profileCache[author]) {
+              authorName = profileCache[author].name;
+              authorAvatar = profileCache[author].avatar;
+            } else {
+              // Fetch from ProfileRegistry
+              try {
+                const hasProf = await profileContract.hasProfile(author);
+                if (hasProf) {
+                  const pHash = await profileContract.getProfile(author);
+                  const pUrl = resolveIPFSUrl(pHash);
+                  const pRes = await fetch(pUrl);
+                  if (pRes.ok) {
+                    const pMeta = await pRes.json();
+                    if (pMeta.name) authorName = pMeta.name;
+                    if (pMeta.avatar) authorAvatar = pMeta.avatar.startsWith('http') ? pMeta.avatar : resolveIPFSUrl(pMeta.avatar);
+                    profileCache[author] = { name: authorName, avatar: authorAvatar };
+                  }
+                }
+              } catch (e) {
+                console.warn(`[BlocX] Failed to fetch profile for ${author}`);
+              }
+            }
+          }
 
           if (contentHash) {
             try {
@@ -94,7 +138,8 @@ export const usePosts = () => {
             id: postId.toString(),
             author: {
               address: author,
-              avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${author}`,
+              avatar: authorAvatar,
+              name: authorName,
             },
             content,
             timestamp: formatTime(Number(postData.timestamp)),

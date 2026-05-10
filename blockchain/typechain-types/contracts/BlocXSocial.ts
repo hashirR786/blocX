@@ -30,6 +30,7 @@ export declare namespace BlocXSocial {
     author: AddressLike;
     contentHash: string;
     timestamp: BigNumberish;
+    isDeleted: boolean;
   };
 
   export type CommentStructOutput = [
@@ -37,13 +38,15 @@ export declare namespace BlocXSocial {
     postId: bigint,
     author: string,
     contentHash: string,
-    timestamp: bigint
+    timestamp: bigint,
+    isDeleted: boolean
   ] & {
     id: bigint;
     postId: bigint;
     author: string;
     contentHash: string;
     timestamp: bigint;
+    isDeleted: boolean;
   };
 }
 
@@ -52,10 +55,14 @@ export interface BlocXSocialInterface extends Interface {
     nameOrSignature:
       | "LIKE_THRESHOLD"
       | "REWARD_PER_LIKE"
+      | "commentIndex"
+      | "commentPostId"
       | "createComment"
       | "createPost"
+      | "deleteComment"
       | "deletePost"
       | "editPost"
+      | "getAllComments"
       | "getComment"
       | "getCommentCount"
       | "hasLiked"
@@ -68,7 +75,10 @@ export interface BlocXSocialInterface extends Interface {
   getEvent(
     nameOrSignatureOrTopic:
       | "CommentCreated"
+      | "CommentDeleted"
       | "PostCreated"
+      | "PostDeleted"
+      | "PostEdited"
       | "PostLiked"
       | "RewardIssued"
   ): EventFragment;
@@ -82,10 +92,22 @@ export interface BlocXSocialInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "commentIndex",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "commentPostId",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "createComment",
     values: [BigNumberish, string]
   ): string;
   encodeFunctionData(functionFragment: "createPost", values: [string]): string;
+  encodeFunctionData(
+    functionFragment: "deleteComment",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "deletePost",
     values: [BigNumberish]
@@ -93,6 +115,10 @@ export interface BlocXSocialInterface extends Interface {
   encodeFunctionData(
     functionFragment: "editPost",
     values: [BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getAllComments",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getComment",
@@ -129,12 +155,28 @@ export interface BlocXSocialInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "commentIndex",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "commentPostId",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "createComment",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "createPost", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "deleteComment",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "deletePost", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "editPost", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "getAllComments",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "getComment", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getCommentCount",
@@ -181,6 +223,28 @@ export namespace CommentCreatedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
+export namespace CommentDeletedEvent {
+  export type InputTuple = [
+    commentId: BigNumberish,
+    postId: BigNumberish,
+    deletedBy: AddressLike
+  ];
+  export type OutputTuple = [
+    commentId: bigint,
+    postId: bigint,
+    deletedBy: string
+  ];
+  export interface OutputObject {
+    commentId: bigint;
+    postId: bigint;
+    deletedBy: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export namespace PostCreatedEvent {
   export type InputTuple = [
     postId: BigNumberish,
@@ -199,6 +263,41 @@ export namespace PostCreatedEvent {
     author: string;
     contentHash: string;
     timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace PostDeletedEvent {
+  export type InputTuple = [postId: BigNumberish, author: AddressLike];
+  export type OutputTuple = [postId: bigint, author: string];
+  export interface OutputObject {
+    postId: bigint;
+    author: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace PostEditedEvent {
+  export type InputTuple = [
+    postId: BigNumberish,
+    author: AddressLike,
+    newContentHash: string
+  ];
+  export type OutputTuple = [
+    postId: bigint,
+    author: string,
+    newContentHash: string
+  ];
+  export interface OutputObject {
+    postId: bigint;
+    author: string;
+    newContentHash: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -293,6 +392,10 @@ export interface BlocXSocial extends BaseContract {
 
   REWARD_PER_LIKE: TypedContractMethod<[], [bigint], "view">;
 
+  commentIndex: TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+
+  commentPostId: TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+
   createComment: TypedContractMethod<
     [_postId: BigNumberish, _contentHash: string],
     [void],
@@ -300,6 +403,12 @@ export interface BlocXSocial extends BaseContract {
   >;
 
   createPost: TypedContractMethod<[_contentHash: string], [void], "nonpayable">;
+
+  deleteComment: TypedContractMethod<
+    [_commentId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
   deletePost: TypedContractMethod<
     [_postId: BigNumberish],
@@ -311,6 +420,12 @@ export interface BlocXSocial extends BaseContract {
     [_postId: BigNumberish, _newContentHash: string],
     [void],
     "nonpayable"
+  >;
+
+  getAllComments: TypedContractMethod<
+    [_postId: BigNumberish],
+    [BlocXSocial.CommentStructOutput[]],
+    "view"
   >;
 
   getComment: TypedContractMethod<
@@ -336,7 +451,7 @@ export interface BlocXSocial extends BaseContract {
   posts: TypedContractMethod<
     [arg0: BigNumberish],
     [
-      [bigint, string, string, bigint, bigint, bigint, bigint] & {
+      [bigint, string, string, bigint, bigint, bigint, bigint, boolean] & {
         id: bigint;
         author: string;
         contentHash: string;
@@ -344,6 +459,7 @@ export interface BlocXSocial extends BaseContract {
         commentCount: bigint;
         rewardMilestone: bigint;
         timestamp: bigint;
+        isDeleted: boolean;
       }
     ],
     "view"
@@ -364,6 +480,12 @@ export interface BlocXSocial extends BaseContract {
     nameOrSignature: "REWARD_PER_LIKE"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "commentIndex"
+  ): TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "commentPostId"
+  ): TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+  getFunction(
     nameOrSignature: "createComment"
   ): TypedContractMethod<
     [_postId: BigNumberish, _contentHash: string],
@@ -374,6 +496,9 @@ export interface BlocXSocial extends BaseContract {
     nameOrSignature: "createPost"
   ): TypedContractMethod<[_contentHash: string], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "deleteComment"
+  ): TypedContractMethod<[_commentId: BigNumberish], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "deletePost"
   ): TypedContractMethod<[_postId: BigNumberish], [void], "nonpayable">;
   getFunction(
@@ -382,6 +507,13 @@ export interface BlocXSocial extends BaseContract {
     [_postId: BigNumberish, _newContentHash: string],
     [void],
     "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "getAllComments"
+  ): TypedContractMethod<
+    [_postId: BigNumberish],
+    [BlocXSocial.CommentStructOutput[]],
+    "view"
   >;
   getFunction(
     nameOrSignature: "getComment"
@@ -408,7 +540,7 @@ export interface BlocXSocial extends BaseContract {
   ): TypedContractMethod<
     [arg0: BigNumberish],
     [
-      [bigint, string, string, bigint, bigint, bigint, bigint] & {
+      [bigint, string, string, bigint, bigint, bigint, bigint, boolean] & {
         id: bigint;
         author: string;
         contentHash: string;
@@ -416,6 +548,7 @@ export interface BlocXSocial extends BaseContract {
         commentCount: bigint;
         rewardMilestone: bigint;
         timestamp: bigint;
+        isDeleted: boolean;
       }
     ],
     "view"
@@ -435,11 +568,32 @@ export interface BlocXSocial extends BaseContract {
     CommentCreatedEvent.OutputObject
   >;
   getEvent(
+    key: "CommentDeleted"
+  ): TypedContractEvent<
+    CommentDeletedEvent.InputTuple,
+    CommentDeletedEvent.OutputTuple,
+    CommentDeletedEvent.OutputObject
+  >;
+  getEvent(
     key: "PostCreated"
   ): TypedContractEvent<
     PostCreatedEvent.InputTuple,
     PostCreatedEvent.OutputTuple,
     PostCreatedEvent.OutputObject
+  >;
+  getEvent(
+    key: "PostDeleted"
+  ): TypedContractEvent<
+    PostDeletedEvent.InputTuple,
+    PostDeletedEvent.OutputTuple,
+    PostDeletedEvent.OutputObject
+  >;
+  getEvent(
+    key: "PostEdited"
+  ): TypedContractEvent<
+    PostEditedEvent.InputTuple,
+    PostEditedEvent.OutputTuple,
+    PostEditedEvent.OutputObject
   >;
   getEvent(
     key: "PostLiked"
@@ -468,6 +622,17 @@ export interface BlocXSocial extends BaseContract {
       CommentCreatedEvent.OutputObject
     >;
 
+    "CommentDeleted(uint256,uint256,address)": TypedContractEvent<
+      CommentDeletedEvent.InputTuple,
+      CommentDeletedEvent.OutputTuple,
+      CommentDeletedEvent.OutputObject
+    >;
+    CommentDeleted: TypedContractEvent<
+      CommentDeletedEvent.InputTuple,
+      CommentDeletedEvent.OutputTuple,
+      CommentDeletedEvent.OutputObject
+    >;
+
     "PostCreated(uint256,address,string,uint256)": TypedContractEvent<
       PostCreatedEvent.InputTuple,
       PostCreatedEvent.OutputTuple,
@@ -477,6 +642,28 @@ export interface BlocXSocial extends BaseContract {
       PostCreatedEvent.InputTuple,
       PostCreatedEvent.OutputTuple,
       PostCreatedEvent.OutputObject
+    >;
+
+    "PostDeleted(uint256,address)": TypedContractEvent<
+      PostDeletedEvent.InputTuple,
+      PostDeletedEvent.OutputTuple,
+      PostDeletedEvent.OutputObject
+    >;
+    PostDeleted: TypedContractEvent<
+      PostDeletedEvent.InputTuple,
+      PostDeletedEvent.OutputTuple,
+      PostDeletedEvent.OutputObject
+    >;
+
+    "PostEdited(uint256,address,string)": TypedContractEvent<
+      PostEditedEvent.InputTuple,
+      PostEditedEvent.OutputTuple,
+      PostEditedEvent.OutputObject
+    >;
+    PostEdited: TypedContractEvent<
+      PostEditedEvent.InputTuple,
+      PostEditedEvent.OutputTuple,
+      PostEditedEvent.OutputObject
     >;
 
     "PostLiked(uint256,address,uint256)": TypedContractEvent<

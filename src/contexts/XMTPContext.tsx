@@ -1,0 +1,73 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Client } from '@xmtp/xmtp-js';
+import { useWallet } from './WalletContext';
+
+interface XMTPContextType {
+  client: Client | null;
+  isConnectingXMTP: boolean;
+  initClient: () => Promise<void>;
+  disconnectXMTP: () => void;
+  error: string | null;
+}
+
+const XMTPContext = createContext<XMTPContextType | undefined>(undefined);
+
+export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { address, provider } = useWallet();
+  const [client, setClient] = useState<Client | null>(null);
+  const [isConnectingXMTP, setIsConnectingXMTP] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize the XMTP client
+  const initClient = useCallback(async () => {
+    if (!address || !provider) {
+      setError("Wallet not connected");
+      return;
+    }
+
+    try {
+      setIsConnectingXMTP(true);
+      setError(null);
+      
+      const signer = await provider.getSigner();
+      
+      // XMTP requires a signature to create/enable the identity. 
+      // We use 'dev' environment for testnets.
+      const xmtpClient = await Client.create(signer, { env: 'dev' });
+      setClient(xmtpClient);
+      
+    } catch (err: any) {
+      console.error("Failed to initialize XMTP client", err);
+      setError(err.message || "Failed to initialize messaging");
+    } finally {
+      setIsConnectingXMTP(false);
+    }
+  }, [address, provider]);
+
+  // Disconnect / clean up
+  const disconnectXMTP = useCallback(() => {
+    setClient(null);
+    setError(null);
+  }, []);
+
+  // Automatically disconnect if the wallet changes
+  useEffect(() => {
+    if (!address) {
+      disconnectXMTP();
+    }
+  }, [address, disconnectXMTP]);
+
+  return (
+    <XMTPContext.Provider value={{ client, isConnectingXMTP, initClient, disconnectXMTP, error }}>
+      {children}
+    </XMTPContext.Provider>
+  );
+};
+
+export const useXMTP = () => {
+  const context = useContext(XMTPContext);
+  if (context === undefined) {
+    throw new Error('useXMTP must be used within an XMTPProvider');
+  }
+  return context;
+};

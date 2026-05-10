@@ -63,12 +63,12 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
               <img
                 src={post.author.avatar}
                 alt="Avatar"
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--border)] border border-white/10 shrink-0"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--border)] border border-white/10 shrink-0 object-cover"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 sm:mb-2">
                   <span className="font-bold text-white tracking-tight">
-                    {post.author.address.slice(0, 6)}...{post.author.address.slice(-4)}
+                    {post.author.name || 'Web3 User'}
                   </span>
                   <span className="text-textMuted text-sm">· {post.timestamp}</span>
                 </div>
@@ -98,33 +98,47 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
             </div>
           ) : (
             <div>
-              {comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="px-4 py-4 sm:px-5 border-b border-[var(--border)] hover:bg-white/5 transition-colors"
-                >
-                  <div className="flex gap-3 sm:gap-4">
-                    <img
-                      src={`https://api.dicebear.com/7.x/identicon/svg?seed=${comment.author}`}
-                      alt="Avatar"
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--border)] shrink-0 border border-white/10"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-white text-sm">
-                          {comment.author.slice(0, 6)}...{comment.author.slice(-4)}
-                        </span>
-                        <span className="text-textMuted text-xs">
-                          · {timeAgo(comment.timestamp)}
-                        </span>
+              {comments.map((comment) => {
+                const isCurrentUser = address && comment.author.toLowerCase() === address.toLowerCase();
+                const commentAvatar = isCurrentUser 
+                  ? (localStorage.getItem(`profileAvatar_${address}`) || `https://api.dicebear.com/7.x/identicon/svg?seed=${comment.author}`)
+                  : `https://api.dicebear.com/7.x/identicon/svg?seed=${comment.author}`;
+                  
+                const commentName = isCurrentUser
+                  ? (localStorage.getItem(`profileName_${address}`) || `${comment.author.slice(0, 6)}...${comment.author.slice(-4)}`)
+                  : `${comment.author.slice(0, 6)}...${comment.author.slice(-4)}`;
+
+                return (
+                  <div
+                    key={comment.id}
+                    className="px-4 py-4 sm:px-5 border-b border-[var(--border)] hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex gap-3 sm:gap-4">
+                      <img
+                        src={commentAvatar}
+                        alt="Avatar"
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--border)] shrink-0 border border-white/10 object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-white text-sm">
+                            {commentName}
+                          </span>
+                          <span className="text-textMuted text-xs font-mono">
+                            @{comment.author.slice(0, 6)}
+                          </span>
+                          <span className="text-textMuted text-xs">
+                            · {timeAgo(comment.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">
+                          {comment.content}
+                        </p>
                       </div>
-                      <p className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">
-                        {comment.content}
-                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -134,9 +148,9 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
           {address ? (
             <div className="flex gap-3 sm:gap-4 items-start">
               <img
-                src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`}
+                src={localStorage.getItem(`profileAvatar_${address}`) || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`}
                 alt="Your avatar"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--border)] shrink-0 border border-white/10"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--border)] shrink-0 border border-white/10 object-cover"
               />
               <div className="flex-1 min-w-0 flex flex-col">
                 <textarea

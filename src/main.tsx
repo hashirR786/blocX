@@ -6,6 +6,7 @@ import './index.css'
 import { ThemeProvider } from './contexts/ThemeContext.tsx'
 import { WalletProvider } from './contexts/WalletContext.tsx'
 import { TransactionProvider } from './contexts/TransactionContext.tsx'
+import { XMTPProvider } from './contexts/XMTPContext.tsx'
 
 const queryClient = new QueryClient()
 
@@ -14,11 +15,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <WalletProvider>
-          <TransactionProvider>
-            <App />
-          </TransactionProvider>
+          <XMTPProvider>
+            <TransactionProvider>
+              <App />
+            </TransactionProvider>
+          </XMTPProvider>
         </WalletProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 )
+

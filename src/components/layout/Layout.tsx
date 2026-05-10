@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import RightSidebar from './RightSidebar';
 import CreatePost from '../post/CreatePost';
 import TransactionOverlay from '../common/TransactionOverlay';
-import { X } from 'lucide-react';
+import ConnectWallet from '../common/ConnectWallet';
+import { X, Home, User, Bell, Zap, MessageSquare } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { cn } from '../../utils/cn';
+
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -31,10 +34,33 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
       )}
 
-      {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 w-full z-50 glass-panel rounded-none border-x-0 border-b-0 border-t border-[var(--border)]">
-        <Navbar />
+      {/* Mobile Bottom Tab Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0B0C10]/95 backdrop-blur-xl border-t border-[var(--border)] pb-safe">
+        <div className="flex items-center justify-around p-2">
+          <NavLink to="/" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <Home className="w-6 h-6" />
+          </NavLink>
+          <NavLink to="/messages" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <MessageSquare className="w-6 h-6" />
+          </NavLink>
+          
+          {/* Center Post Button */}
+          <button 
+            onClick={() => setIsPostModalOpen(true)}
+            className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] -mt-8 border-4 border-[#0B0C10] transition-transform active:scale-95"
+          >
+            <Zap className="w-6 h-6 fill-white" />
+          </button>
+
+          <NavLink to="/notifications" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <Bell className="w-6 h-6" />
+          </NavLink>
+          <NavLink to="/profile" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <User className="w-6 h-6" />
+          </NavLink>
+        </div>
       </div>
+
 
       <div className="flex w-full max-w-[1400px] justify-center px-0 md:px-4 lg:px-8 gap-6 pt-0 md:pt-6">
         {/* Left Sidebar - Floating Dock on Desktop */}
@@ -43,10 +69,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </header>
 
         {/* Center Feed */}
-        <main className="flex-1 min-w-0 max-w-[650px] flex flex-col min-h-screen pb-24 md:pb-6 relative z-10">
-          {/* Mobile Top Nav */}
-          <div className="md:hidden sticky top-0 z-10 glass-panel rounded-none border-x-0 border-t-0 py-3 px-4 mb-4">
-             <h1 className="text-2xl font-bold glow-text tracking-tight">blocX</h1>
+        <main className="flex-1 min-w-0 max-w-[650px] flex flex-col min-h-screen pb-[80px] md:pb-6 relative z-10">
+          {/* Mobile Top Header */}
+          <div className="md:hidden sticky top-0 z-20 bg-[#0B0C10]/80 backdrop-blur-xl border-b border-[var(--border)] py-3 px-4 mb-4 flex justify-between items-center shadow-lg">
+             <h1 className="text-2xl font-extrabold glow-text tracking-tighter">blocX</h1>
+             <ConnectWallet />
           </div>
           
           <div className="w-full flex-1">

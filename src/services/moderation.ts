@@ -30,7 +30,7 @@ export async function moderateContent(text: string, imageFile?: File | null): Pr
         return { isFlagged: false };
       }
 
-      const response = await fetch('/api/groq/openai/v1/chat/completions', {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,8 +84,9 @@ Format:
         return { isFlagged: true, reason: `Groq API Error: ${errorData.error?.message || response.statusText}` };
       }
     } catch (error: any) {
-      console.error('[BlocX] Groq API fetch failed:', error);
-      return { isFlagged: true, reason: `Failed to connect to moderation service.` };
+      console.error('[BlocX] Groq API fetch failed, falling back to keyword filter:', error);
+      // Fail open — don't block the user if the API is unreachable
+      // Fall through to keyword filter below
     }
   }
 

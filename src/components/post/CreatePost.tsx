@@ -113,15 +113,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
   if (!address) return null;
 
+  const currentAvatar = localStorage.getItem(`profileAvatar_${address}`) || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`;
+
   return (
     <div className="glass-panel p-5 mb-6 relative overflow-hidden group">
       <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-50 pointer-events-none" />
       
       <div className="flex gap-4 relative z-10">
         <img 
-          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`} 
+          src={currentAvatar} 
           alt="Avatar" 
-          className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shrink-0 cursor-pointer shadow-lg" 
+          className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shrink-0 cursor-pointer shadow-lg object-cover" 
         />
         <div className="flex-1 min-w-0">
           <textarea 

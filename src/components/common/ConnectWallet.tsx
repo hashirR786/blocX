@@ -28,18 +28,21 @@ const ConnectWallet: React.FC = () => {
     );
   }
 
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const hasEthereum = !!(window as any).ethereum;
+
   return (
     <button
       onClick={connect}
       disabled={isConnecting}
-      className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-full font-medium transition-colors disabled:opacity-70"
+      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white rounded-full font-medium transition-all disabled:opacity-70 shadow-lg shadow-primary/20 text-sm"
     >
       {isConnecting ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : (
         <Wallet className="w-4 h-4" />
       )}
-      Connect Wallet
+      {isMobile && !hasEthereum ? 'Open in MetaMask' : 'Connect Wallet'}
     </button>
   );
 };

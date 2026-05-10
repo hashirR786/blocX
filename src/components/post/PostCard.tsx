@@ -73,7 +73,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <h4 className="font-bold text-white text-lg truncate tracking-tight">Web3 ID</h4>
+              <h4 className="font-bold text-white text-lg truncate tracking-tight">{post.author.name || 'Web3 User'}</h4>
               <span className="text-sm text-textMuted font-mono">@{post.author.address.slice(0, 6)}</span>
               <span className="w-1 h-1 rounded-full bg-textMuted mx-1" />
               <span className="text-sm text-textMuted">{post.timestamp}</span>

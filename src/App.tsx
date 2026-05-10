@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Governance from './pages/Governance';
 import Notifications from './pages/Notifications';
+import Messages from './pages/Messages';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/governance" element={<Governance />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/messages" element={<Messages />} />
         </Routes>
       </Layout>
     </Router>
@@ -21,3 +23,4 @@ function App() {
 }
 
 export default App;
+

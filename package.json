@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.1",
+    "@xmtp/xmtp-js": "^13.0.4",
+    "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "ethers": "^6.16.0",
     "framer-motion": "^12.38.0",
