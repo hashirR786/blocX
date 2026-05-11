@@ -66,7 +66,7 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log("Checking if XMTP client can be built from local storage...");
       try {
-        const existingClient = await Client.build(xmtpSigner, {
+        const existingClient = await Client.build(identifier, {
           env: 'production',
         } as any);
         if (existingClient) {
