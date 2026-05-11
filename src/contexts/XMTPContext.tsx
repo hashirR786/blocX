@@ -84,6 +84,18 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } as any);
       
       console.log("XMTP V3 client created successfully!");
+      
+      // Ensure identity is registered on the network
+      try {
+        if (!xmtpClient.isRegistered) {
+          console.log("Identity not registered, calling registerIdentity()...");
+          await xmtpClient.registerIdentity();
+          console.log("Identity registered successfully!");
+        }
+      } catch (regError) {
+        console.warn("Registration check/call failed (might already be registered):", regError);
+      }
+
       setClient(xmtpClient);
       
     } catch (err: any) {
