@@ -64,40 +64,14 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
         identifierKind: IdentifierKind.Ethereum,
       };
 
-      console.log("Checking if XMTP client can be built from local storage...");
-      let xmtpClient: any;
-      try {
-        const existingClient = await Client.build(identifier, {
-          env: 'production',
-        } as any);
-        if (existingClient) {
-          console.log("Existing XMTP client found and built!");
-          xmtpClient = existingClient;
-        } else {
-          console.log("No existing client found, proceeding to create...");
-          xmtpClient = await Client.create(xmtpSigner, {
-            env: 'production',
-          } as any);
-          console.log("XMTP V3 client created successfully!");
-        }
-      } catch (e) {
-        console.log("Client restoration/creation failed, trying fresh create...");
-        xmtpClient = await Client.create(xmtpSigner, {
-          env: 'production',
-        } as any);
-      }
-
-      // Ensure identity is registered on the network (FOR BOTH NEW AND EXISTING)
-      try {
-        const anyClient = xmtpClient as any;
-        console.log("Checking XMTP registration status...");
-        // Some versions use .isRegistered, others require calling registerIdentity which is idempotent
-        await anyClient.registerIdentity();
-        console.log("XMTP Identity verified/registered on network.");
-      } catch (regError) {
-        console.warn("Registration call failed (likely already registered or network delay):", regError);
-      }
-
+      console.log("Initializing XMTP V3 client (Production)...");
+      // Use Client.create instead of Client.build to ensure the identity is 
+      // properly registered/activated on the network every time.
+      const xmtpClient = await Client.create(xmtpSigner, {
+        env: 'production',
+      } as any);
+      
+      console.log("XMTP V3 client initialized and activated successfully!");
       setClient(xmtpClient);
       
     } catch (err: any) {
