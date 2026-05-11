@@ -9,7 +9,6 @@ export default defineConfig({
     react(),
     tailwindcss(),
     nodePolyfills({
-      // Polyfill Buffer, process, and other Node.js globals used by XMTP
       globals: {
         Buffer: true,
         global: true,
@@ -18,7 +17,23 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
+  define: {
+    global: 'globalThis',
+  },
+  build: {
+    target: 'esnext',
+  },
+  worker: {
+    format: 'es',
+  },
+  optimizeDeps: {
+    exclude: ['@xmtp/browser-sdk'],
+  },
   server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     proxy: {
       '/api/groq': {
         target: 'https://api.groq.com',

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Client } from '@xmtp/xmtp-js';
+import { Client, type Signer, IdentifierKind } from '@xmtp/browser-sdk';
 import { useWallet } from './WalletContext';
 
 interface XMTPContextType {
@@ -29,15 +29,47 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsConnectingXMTP(true);
       setError(null);
       
-      const signer = await provider.getSigner();
+      // Polyfill global if missing (some SDK internals expect it)
+      if (typeof (window as any).global === 'undefined') {
+        (window as any).global = window;
+      }
+
+      console.log("Starting XMTP V3 init for address:", address);
+      console.log("crossOriginIsolated:", window.crossOriginIsolated);
       
-      // XMTP requires a signature to create/enable the identity. 
-      // We use 'dev' environment for testnets.
-      const xmtpClient = await Client.create(signer, { env: 'dev' });
+      const ethersSigner = await provider.getSigner();
+      console.log("Got ethers signer");
+      
+      const xmtpSigner: Signer = {
+        type: 'EOA',
+        getIdentifier: () => ({
+          identifier: address,
+          identifierKind: IdentifierKind.Ethereum,
+        }),
+        signMessage: async (message: string): Promise<Uint8Array> => {
+          console.log("Signing message for XMTP...");
+          const signature = await ethersSigner.signMessage(message);
+          console.log("Message signed");
+          const hex = signature.slice(2);
+          const bytes = new Uint8Array(hex.length / 2);
+          for (let i = 0; i < hex.length; i += 2) {
+            bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+          }
+          return bytes;
+        },
+      };
+      
+      console.log("Creating XMTP V3 client...");
+      // Simple create call
+      const xmtpClient = await Client.create(xmtpSigner, {
+        env: 'dev',
+      } as any);
+      
+      console.log("XMTP V3 client created successfully");
       setClient(xmtpClient);
       
     } catch (err: any) {
-      console.error("Failed to initialize XMTP client", err);
+      console.error("Failed to initialize XMTP client:", err);
       setError(err.message || "Failed to initialize messaging");
     } finally {
       setIsConnectingXMTP(false);

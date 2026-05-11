@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useXMTP } from '../contexts/XMTPContext';
 import { useWallet } from '../contexts/WalletContext';
-import { Client } from '@xmtp/xmtp-js';
-import type { Conversation, DecodedMessage } from '@xmtp/xmtp-js';
+import { IdentifierKind } from '@xmtp/browser-sdk';
+import type { Conversation, DecodedMessage } from '@xmtp/browser-sdk';
 import {
   MessageSquare, Send, ArrowLeft, Loader2, ShieldCheck,
   Search, Plus, X, AlertCircle
@@ -14,13 +14,14 @@ import {
 interface ConversationWithLastMsg {
   conversation: Conversation;
   lastMsg: DecodedMessage | null;
-  peerAddress: string;
+  peerInboxId: string;
+  peerAddress: string; // fallback/display
   unread: boolean;
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-const shortAddr = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+const shortAddr = (addr: string) => addr && addr.length > 15 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 
 const formatTime = (date: Date) => {
   const now = new Date();
@@ -39,7 +40,7 @@ const EnableXMTP: React.FC<{ onEnable: () => void; loading: boolean; error: stri
     <div>
       <h2 className="text-2xl font-bold text-white mb-2">Enable Secure Messaging</h2>
       <p className="text-textMuted text-sm max-w-xs">
-        BlocX uses <span className="text-primary font-medium">XMTP</span> — your messages are end-to-end encrypted using your wallet keys.
+        BlocX uses <span className="text-primary font-medium">XMTP V3</span> — your messages are end-to-end encrypted using your wallet keys.
         You'll sign a free message to unlock your inbox.
       </p>
     </div>
@@ -118,7 +119,7 @@ const Messages: React.FC = () => {
   const [isMobileViewingChat, setIsMobileViewingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const streamRef = useRef<any>(null);
+  const streamCloserRef = useRef<any>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -129,20 +130,22 @@ const Messages: React.FC = () => {
     try {
       const convos = await client.conversations.list();
       const withLast: ConversationWithLastMsg[] = await Promise.all(
-        convos.map(async (c) => {
-          const msgs = await c.messages({ limit: 1, direction: 1 } as any);
+        convos.map(async (c: any) => {
+          const lastMsg = await c.lastMessage();
+          const peerInboxId = c.peerInboxId ? await c.peerInboxId() : 'Group';
           return {
-            conversation: c,
-            peerAddress: c.peerAddress,
-            lastMsg: msgs[0] || null,
+            conversation: c as Conversation,
+            peerInboxId,
+            peerAddress: peerInboxId,
+            lastMsg: lastMsg || null,
             unread: false,
           };
         })
       );
       // Sort newest first
       withLast.sort((a, b) => {
-        const ta = a.lastMsg?.sent?.getTime() ?? 0;
-        const tb = b.lastMsg?.sent?.getTime() ?? 0;
+        const ta = a.lastMsg?.sentAt?.getTime() ?? (a.conversation as any).createdAt?.getTime() ?? 0;
+        const tb = b.lastMsg?.sentAt?.getTime() ?? (b.conversation as any).createdAt?.getTime() ?? 0;
         return tb - ta;
       });
       setConversations(withLast);
@@ -164,7 +167,7 @@ const Messages: React.FC = () => {
     setLoadingMsgs(true);
     try {
       const msgs = await convo.messages();
-      setMessages(msgs);
+      setMessages(msgs as DecodedMessage[]);
       scrollToBottom();
     } catch (e) {
       console.error('Failed to load messages', e);
@@ -173,16 +176,27 @@ const Messages: React.FC = () => {
     }
 
     // Stream new messages for this conversation
-    if (streamRef.current) {
-      streamRef.current.return?.(); // close prev stream
+    if (streamCloserRef.current) {
+      streamCloserRef.current.return?.();
     }
-    (async () => {
-      streamRef.current = await convo.streamMessages();
-      for await (const msg of streamRef.current) {
-        setMessages((prev) => [...prev, msg]);
-        scrollToBottom();
-      }
-    })();
+    
+    try {
+      const stream = await convo.stream({
+        onValue: (msg: DecodedMessage) => {
+          setMessages((prev) => [...prev, msg]);
+          scrollToBottom();
+        }
+      });
+      streamCloserRef.current = stream;
+    } catch (e) {
+      console.error('Failed to start stream', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (streamCloserRef.current) streamCloserRef.current.return?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -194,7 +208,7 @@ const Messages: React.FC = () => {
     if (!activeConvo || !inputText.trim() || sendingMsg) return;
     setSendingMsg(true);
     try {
-      await activeConvo.send(inputText.trim());
+      await activeConvo.sendText(inputText.trim());
       setInputText('');
     } catch (e) {
       console.error('Failed to send message', e);
@@ -208,12 +222,18 @@ const Messages: React.FC = () => {
     if (!client) return;
     setStartingNewConvo(true);
     try {
-      const canMessage = await Client.canMessage(peerAddress, { env: 'dev' });
-      if (!canMessage) {
+      // Resolve address to inboxId
+      const inboxId = await client.fetchInboxIdByIdentifier({
+        identifier: peerAddress,
+        identifierKind: IdentifierKind.Ethereum
+      });
+
+      if (!inboxId) {
         alert(`This address (${peerAddress}) has not enabled XMTP yet. Ask them to open their messages first.`);
         return;
       }
-      const convo = await client.conversations.newConversation(peerAddress);
+      
+      const convo = await client.conversations.createDm(inboxId);
       setShowNewModal(false);
       await openConversation(convo);
       loadConversations();
@@ -225,7 +245,7 @@ const Messages: React.FC = () => {
   };
 
   const filteredConvos = conversations.filter((c) =>
-    c.peerAddress.toLowerCase().includes(searchQuery.toLowerCase())
+    c.peerInboxId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // ── Not connected ───────────────────────────────────────────────────────────
@@ -288,7 +308,7 @@ const Messages: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by address…"
+                placeholder="Search by inboxId…"
                 className="flex-1 bg-transparent text-white placeholder-textMuted text-sm focus:outline-none"
               />
             </div>
@@ -308,30 +328,30 @@ const Messages: React.FC = () => {
             ) : (
               filteredConvos.map((c) => (
                 <button
-                  key={c.peerAddress}
+                  key={c.conversation.id}
                   onClick={() => openConversation(c.conversation)}
                   className={`w-full flex items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-white/5 border-b border-white/5 ${
-                    activeConvo?.peerAddress === c.peerAddress ? 'bg-white/8' : ''
+                    activeConvo?.id === c.conversation.id ? 'bg-white/8' : ''
                   }`}
                 >
                   {/* Avatar */}
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {c.peerAddress.slice(2, 4).toUpperCase()}
+                    {c.peerInboxId.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-white font-medium text-sm font-mono truncate">
-                        {shortAddr(c.peerAddress)}
+                        {shortAddr(c.peerInboxId)}
                       </span>
-                      {c.lastMsg?.sent && (
+                      {c.lastMsg?.sentAt && (
                         <span className="text-textMuted text-xs shrink-0 ml-2">
-                          {formatTime(c.lastMsg.sent)}
+                          {formatTime(c.lastMsg.sentAt)}
                         </span>
                       )}
                     </div>
                     <p className="text-textMuted text-xs truncate mt-0.5">
                       {c.lastMsg
-                        ? `${c.lastMsg.senderAddress === address ? 'You: ' : ''}${c.lastMsg.content}`
+                        ? `${c.lastMsg.senderInboxId === client.inboxId ? 'You: ' : ''}${c.lastMsg.content}`
                         : 'No messages yet'}
                     </p>
                   </div>
@@ -372,11 +392,12 @@ const Messages: React.FC = () => {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
-                  {activeConvo.peerAddress.slice(2, 4).toUpperCase()}
+                  {/* We need to get the peer ID again or store it */}
+                  {conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <p className="text-white font-semibold text-sm font-mono">
-                    {shortAddr(activeConvo.peerAddress)}
+                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || '')}
                   </p>
                   <p className="text-textMuted text-xs flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-green-400" />
@@ -397,12 +418,12 @@ const Messages: React.FC = () => {
                   </div>
                 ) : (
                   messages.map((msg, i) => {
-                    const isMe = msg.senderAddress.toLowerCase() === address?.toLowerCase();
+                    const isMe = msg.senderInboxId === client.inboxId;
                     return (
                       <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         {!isMe && (
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xs mr-2 shrink-0 mt-auto mb-1">
-                            {msg.senderAddress.slice(2, 4).toUpperCase()}
+                            {msg.senderInboxId.slice(0, 2).toUpperCase()}
                           </div>
                         )}
                         <div className={`max-w-[70%] group`}>
@@ -413,10 +434,10 @@ const Messages: React.FC = () => {
                               : 'bg-white/8 text-white rounded-bl-sm border border-white/10'
                             }
                           `}>
-                            {msg.content}
+                            {msg.content as React.ReactNode}
                           </div>
                           <p className={`text-textMuted text-xs mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
-                            {msg.sent ? formatTime(msg.sent) : ''}
+                            {msg.sentAt ? formatTime(msg.sentAt) : ''}
                           </p>
                         </div>
                       </div>
@@ -455,3 +476,5 @@ const Messages: React.FC = () => {
 };
 
 export default Messages;
+
+
