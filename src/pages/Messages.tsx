@@ -271,15 +271,20 @@ const Messages: React.FC = () => {
     );
   }
 
-  // Helper to render content safely
   const renderMsgContent = (content: any) => {
     if (typeof content === 'string') return content;
     if (content && typeof content.text === 'string') return content.text;
-    if (content && typeof content.toString === 'function') {
-      const str = content.toString();
-      if (str !== '[object Object]') return str;
+    
+    // Filter out technical system messages (Group/DM changes)
+    if (content && typeof content === 'object') {
+      const keys = Object.keys(content);
+      if (keys.includes('initiatedByInboxId') || keys.includes('addedInboxes')) {
+        return "Conversation started";
+      }
+      return JSON.stringify(content);
     }
-    return typeof content === 'object' ? JSON.stringify(content) : String(content);
+    
+    return String(content);
   };
 
   // Connect XMTP on mount is ready, ensure we stay on the messages page
