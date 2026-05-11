@@ -223,12 +223,19 @@ const Messages: React.FC = () => {
     setStartingNewConvo(true);
     try {
       // Resolve address to inboxId
+      console.log(`[XMTP] Fetching inboxId for: ${peerAddress}`);
       const inboxId = await client.fetchInboxIdByIdentifier({
         identifier: peerAddress,
         identifierKind: IdentifierKind.Ethereum
       });
+      
+      console.log(`[XMTP] InboxId result:`, inboxId);
 
       if (!inboxId) {
+        // Double check with canMessage
+        const canMsg = await client.canMessage([peerAddress]);
+        console.log(`[XMTP] canMessage check:`, canMsg);
+        
         alert(`This address (${peerAddress}) has not enabled XMTP yet. Ask them to open their messages first.`);
         return;
       }
