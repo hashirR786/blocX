@@ -66,7 +66,9 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log("Checking if XMTP client can be built from local storage...");
       try {
-        const existingClient = await Client.build(identifier, { env: 'dev' } as any);
+        const existingClient = await Client.build(xmtpSigner, {
+          env: 'production',
+        } as any);
         if (existingClient) {
           console.log("Existing XMTP client found and built!");
           setClient(existingClient);
@@ -76,9 +78,9 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("No existing client found, proceeding to create...");
       }
 
-      console.log("CALLING Client.create(signer, { env: 'dev' })...");
+      console.log("CALLING Client.create(signer, { env: 'production' })...");
       const xmtpClient = await Client.create(xmtpSigner, {
-        env: 'dev',
+        env: 'production',
       } as any);
       
       console.log("XMTP V3 client created successfully!");

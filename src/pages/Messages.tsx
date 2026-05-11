@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useXMTP } from '../contexts/XMTPContext';
 import { useWallet } from '../contexts/WalletContext';
+import { getAddress } from 'ethers';
 import { IdentifierKind } from '@xmtp/browser-sdk';
 import type { Conversation, DecodedMessage } from '@xmtp/browser-sdk';
 import {
@@ -223,9 +224,10 @@ const Messages: React.FC = () => {
     setStartingNewConvo(true);
     try {
       // Resolve address to inboxId
-      console.log(`[XMTP] Fetching inboxId for: ${peerAddress}`);
+      const formattedAddress = getAddress(peerAddress);
+      console.log(`[XMTP] Fetching inboxId for: ${formattedAddress}`);
       const inboxId = await client.fetchInboxIdByIdentifier({
-        identifier: peerAddress,
+        identifier: formattedAddress,
         identifierKind: IdentifierKind.Ethereum
       });
       
@@ -234,7 +236,7 @@ const Messages: React.FC = () => {
       if (!inboxId) {
         // Double check with canMessage
         const canMsg = await client.canMessage([{
-          identifier: peerAddress,
+          identifier: formattedAddress,
           identifierKind: IdentifierKind.Ethereum
         }]);
         console.log(`[XMTP] canMessage check:`, canMsg);
