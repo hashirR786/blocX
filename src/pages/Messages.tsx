@@ -271,7 +271,18 @@ const Messages: React.FC = () => {
     );
   }
 
-  // After XMTP client is ready, ensure we stay on the messages page
+  // Helper to render content safely
+  const renderMsgContent = (content: any) => {
+    if (typeof content === 'string') return content;
+    if (content && typeof content.text === 'string') return content.text;
+    if (content && typeof content.toString === 'function') {
+      const str = content.toString();
+      if (str !== '[object Object]') return str;
+    }
+    return typeof content === 'object' ? JSON.stringify(content) : String(content);
+  };
+
+  // Connect XMTP on mount is ready, ensure we stay on the messages page
   useEffect(() => {
     if (client && location.pathname !== '/messages') {
       navigate('/messages');
@@ -363,7 +374,7 @@ const Messages: React.FC = () => {
                     </div>
                     <p className="text-textMuted text-xs truncate mt-0.5">
                       {c.lastMsg
-                        ? `${c.lastMsg.senderInboxId === client.inboxId ? 'You: ' : ''}${c.lastMsg.content}`
+                        ? `${c.lastMsg.senderInboxId === client.inboxId ? 'You: ' : ''}${renderMsgContent(c.lastMsg.content)}`
                         : 'No messages yet'}
                     </p>
                   </div>
@@ -404,12 +415,11 @@ const Messages: React.FC = () => {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
-                  {/* We need to get the peer ID again or store it */}
-                  {conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId.slice(0, 2).toUpperCase()}
+                  {conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId?.slice(0, 2).toUpperCase() || 'DM'}
                 </div>
-                <div>
-                  <p className="text-white font-semibold text-sm font-mono">
-                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || '')}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold text-sm font-mono truncate">
+                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || activeConvo.peerInboxId || 'Conversation')}
                   </p>
                   <p className="text-textMuted text-xs flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-green-400" />
@@ -446,7 +456,7 @@ const Messages: React.FC = () => {
                               : 'bg-white/8 text-white rounded-bl-sm border border-white/10'
                             }
                           `}>
-                            {msg.content as React.ReactNode}
+                            {renderMsgContent(msg.content)}
                           </div>
                           <p className={`text-textMuted text-xs mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
                             {msg.sentAt ? formatTime(msg.sentAt) : ''}
