@@ -71,7 +71,7 @@ export const uploadFileToIPFS = async (file: File): Promise<string> => {
 export const resolveIPFSUrl = (url: string | null | undefined): string => {
   if (!url) return "";
   if (url.startsWith("ipfs://")) {
-    return url.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+    return url.replace("ipfs://", "https://ipfs.io/ipfs/");
   }
   return url;
 };

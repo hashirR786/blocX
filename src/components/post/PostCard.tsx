@@ -67,7 +67,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
       <div className="flex gap-4 relative z-10">
         <div className="shrink-0">
-          <img src={post.author.avatar} alt="Avatar" className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shadow-lg" />
+          <img 
+            src={post.author.avatar} 
+            alt="Avatar" 
+            crossOrigin="anonymous"
+            className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shadow-lg" 
+          />
         </div>
         
         <div className="flex-1 min-w-0">
@@ -87,7 +92,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           
           {post.media && (
             <div className="mb-4">
-              <img src={post.media} alt="Post media" className="rounded-xl w-full object-cover max-h-[400px] border border-white/10 shadow-lg" />
+              <img 
+                src={post.media} 
+                alt="Post media" 
+                crossOrigin="anonymous"
+                className="rounded-xl w-full object-cover max-h-[400px] border border-white/10 shadow-lg" 
+              />
             </div>
           )}
 
