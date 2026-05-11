@@ -233,7 +233,10 @@ const Messages: React.FC = () => {
 
       if (!inboxId) {
         // Double check with canMessage
-        const canMsg = await client.canMessage([peerAddress]);
+        const canMsg = await client.canMessage([{
+          identifier: peerAddress,
+          identifierKind: IdentifierKind.Ethereum
+        }]);
         console.log(`[XMTP] canMessage check:`, canMsg);
         
         alert(`This address (${peerAddress}) has not enabled XMTP yet. Ask them to open their messages first.`);
