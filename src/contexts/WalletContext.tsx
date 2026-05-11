@@ -62,8 +62,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Deep-link the user into MetaMask's built-in browser pointing to this app.
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
-        const appUrl = window.location.host; // e.g. bloc-x.vercel.app
-        const deepLink = `https://metamask.app.link/dapp/${appUrl}`;
+        const fullUrl = window.location.href.replace(/^https?:\/\//, '');
+        const deepLink = `https://metamask.app.link/dapp/${fullUrl}`;
         window.location.href = deepLink;
         return;
       }

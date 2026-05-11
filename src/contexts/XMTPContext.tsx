@@ -47,9 +47,9 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
           identifierKind: IdentifierKind.Ethereum,
         }),
         signMessage: async (message: string): Promise<Uint8Array> => {
-          console.log("Signing message for XMTP...");
+          console.log("SIGNING TRIGGERED - Message:", message.slice(0, 20) + "...");
           const signature = await ethersSigner.signMessage(message);
-          console.log("Message signed");
+          console.log("SIGNING SUCCESSFUL");
           const hex = signature.slice(2);
           const bytes = new Uint8Array(hex.length / 2);
           for (let i = 0; i < hex.length; i += 2) {
@@ -59,17 +59,28 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
       
-      console.log("Creating XMTP V3 client...");
-      // Simple create call
+      console.log("Checking if XMTP client can be built from local storage...");
+      try {
+        const existingClient = await Client.build(xmtpSigner.getIdentifier(), { env: 'dev' } as any);
+        if (existingClient) {
+          console.log("Existing XMTP client found and built!");
+          setClient(existingClient);
+          return;
+        }
+      } catch (e) {
+        console.log("No existing client found, proceeding to create...");
+      }
+
+      console.log("CALLING Client.create(signer, { env: 'dev' })...");
       const xmtpClient = await Client.create(xmtpSigner, {
         env: 'dev',
       } as any);
       
-      console.log("XMTP V3 client created successfully");
+      console.log("XMTP V3 client created successfully!");
       setClient(xmtpClient);
       
     } catch (err: any) {
-      console.error("Failed to initialize XMTP client:", err);
+      console.error("CRITICAL: Failed to initialize XMTP client:", err);
       setError(err.message || "Failed to initialize messaging");
     } finally {
       setIsConnectingXMTP(false);
