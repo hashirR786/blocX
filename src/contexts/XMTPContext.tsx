@@ -59,9 +59,14 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
       
+      const identifier = {
+        identifier: address,
+        identifierKind: IdentifierKind.Ethereum,
+      };
+
       console.log("Checking if XMTP client can be built from local storage...");
       try {
-        const existingClient = await Client.build(xmtpSigner.getIdentifier(), { env: 'dev' } as any);
+        const existingClient = await Client.build(identifier, { env: 'dev' } as any);
         if (existingClient) {
           console.log("Existing XMTP client found and built!");
           setClient(existingClient);
