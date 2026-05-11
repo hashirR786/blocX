@@ -59,10 +59,7 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
       
-      const identifier = {
-        identifier: address,
-        identifierKind: IdentifierKind.Ethereum,
-      };
+
 
       console.log("Initializing XMTP V3 client (Production)...");
       // Use Client.create instead of Client.build to ensure the identity is 
