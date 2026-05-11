@@ -65,36 +65,37 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       console.log("Checking if XMTP client can be built from local storage...");
+      let xmtpClient: any;
       try {
         const existingClient = await Client.build(identifier, {
           env: 'production',
         } as any);
         if (existingClient) {
           console.log("Existing XMTP client found and built!");
-          setClient(existingClient);
-          return;
+          xmtpClient = existingClient;
+        } else {
+          console.log("No existing client found, proceeding to create...");
+          xmtpClient = await Client.create(xmtpSigner, {
+            env: 'production',
+          } as any);
+          console.log("XMTP V3 client created successfully!");
         }
       } catch (e) {
-        console.log("No existing client found, proceeding to create...");
+        console.log("Client restoration/creation failed, trying fresh create...");
+        xmtpClient = await Client.create(xmtpSigner, {
+          env: 'production',
+        } as any);
       }
 
-      console.log("CALLING Client.create(signer, { env: 'production' })...");
-      const xmtpClient = await Client.create(xmtpSigner, {
-        env: 'production',
-      } as any);
-      
-      console.log("XMTP V3 client created successfully!");
-      
-      // Ensure identity is registered on the network
+      // Ensure identity is registered on the network (FOR BOTH NEW AND EXISTING)
       try {
         const anyClient = xmtpClient as any;
-        if (!anyClient.isRegistered) {
-          console.log("Identity not registered, calling registerIdentity()...");
-          await anyClient.registerIdentity();
-          console.log("Identity registered successfully!");
-        }
+        console.log("Checking XMTP registration status...");
+        // Some versions use .isRegistered, others require calling registerIdentity which is idempotent
+        await anyClient.registerIdentity();
+        console.log("XMTP Identity verified/registered on network.");
       } catch (regError) {
-        console.warn("Registration check/call failed (might already be registered):", regError);
+        console.warn("Registration call failed (likely already registered or network delay):", regError);
       }
 
       setClient(xmtpClient);
