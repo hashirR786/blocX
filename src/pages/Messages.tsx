@@ -419,7 +419,7 @@ const Messages: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold text-sm font-mono truncate">
-                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || activeConvo.peerInboxId || 'Conversation')}
+                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || (activeConvo as any).peerInboxId || 'Conversation')}
                   </p>
                   <p className="text-textMuted text-xs flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-green-400" />
