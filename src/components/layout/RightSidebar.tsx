@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { TrendingUp, Activity, ShieldCheck, Search, Loader2, UserX } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import {
+  Activity, Search, Loader2, UserX, Zap, Users, FileText,
+  Coins, ChevronRight, Clock, BarChart2,
+} from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useUserSearch } from '../../hooks/useUserSearch';
 import type { UserProfile } from '../../hooks/useUserSearch';
+import { useNetworkStats, usePlatformStats, useLatestProposal } from '../../hooks/useChainStats';
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
   let timer: ReturnType<typeof setTimeout>;
@@ -12,17 +16,30 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
   };
 }
 
-const trends = [
-  { tag: '#PolygonAmoy', posts: '12.5K', isHot: true },
-  { tag: '#Web3Social', posts: '8,240', isHot: false },
-  { tag: '#BlocXLaunch', posts: '5,102', isHot: true },
-];
+function formatCountdown(endTime: number): string {
+  const diff = endTime - Math.floor(Date.now() / 1000);
+  if (diff <= 0) return 'Ended';
+  const d = Math.floor(diff / 86400);
+  const h = Math.floor((diff % 86400) / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h left`;
+  if (h > 0) return `${h}h ${m}m left`;
+  return `${m}m left`;
+}
+
+// ── Skeleton pulse ────────────────────────────────────────────────────────────
+const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <span className={`inline-block rounded bg-white/5 animate-pulse ${className}`} />
+);
 
 const RightSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { results, isSearching, search } = useUserSearch();
+  const network  = useNetworkStats();
+  const platform = usePlatformStats();
+  const { proposal, loading: propLoading } = useLatestProposal();
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery]               = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -32,34 +49,33 @@ const RightSidebar: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
-    if (val.trim().length >= 2) {
-      setShowDropdown(true);
-      debouncedSearch(val);
-    } else {
-      setShowDropdown(false);
-    }
+    if (val.trim().length >= 2) { setShowDropdown(true); debouncedSearch(val); }
+    else setShowDropdown(false);
   };
 
   const handleSelect = (profile: UserProfile) => {
-    setQuery('');
-    setShowDropdown(false);
+    setQuery(''); setShowDropdown(false);
     navigate(`/user/${profile.address}`);
   };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node))
         setShowDropdown(false);
-      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  return (
-    <div className="h-full flex flex-col p-4 space-y-6">
+  const now = Math.floor(Date.now() / 1000);
+  const isActive = proposal ? proposal.endTime > now : false;
+  const totalVotes = proposal ? proposal.yesVotes + proposal.noVotes + proposal.abstainVotes : 0;
+  const yesPct = totalVotes > 0 ? Math.round((proposal!.yesVotes / totalVotes) * 100) : 0;
 
-      {/* Search */}
+  return (
+    <div className="h-full flex flex-col p-4 space-y-4 overflow-y-auto">
+
+      {/* ── Search ─────────────────────────────────────────────────────────── */}
       <div className="relative group" ref={containerRef}>
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-textMuted group-focus-within:text-white transition-colors">
           {isSearching
@@ -74,18 +90,15 @@ const RightSidebar: React.FC = () => {
           placeholder="Search users or address…"
           className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl py-3 pl-11 pr-4 text-white focus:outline-none focus:border-primary focus:bg-[var(--surface-hover)] transition-all placeholder:text-textMuted shadow-sm backdrop-blur-md"
         />
-
         {showDropdown && (
           <div className="absolute top-full mt-2 left-0 right-0 z-50 glass-panel rounded-2xl overflow-hidden shadow-xl border border-border">
             {isSearching ? (
               <div className="flex items-center justify-center gap-2 p-4 text-textMuted text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Searching chain…
+                <Loader2 className="w-4 h-4 animate-spin" /> Searching chain…
               </div>
             ) : results.length === 0 ? (
               <div className="flex flex-col items-center gap-2 p-5 text-textMuted text-sm">
-                <UserX className="w-6 h-6 opacity-40" />
-                No registered users found
+                <UserX className="w-6 h-6 opacity-40" /> No registered users found
               </div>
             ) : (
               <div className="flex flex-col max-h-72 overflow-y-auto">
@@ -123,53 +136,124 @@ const RightSidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Network Stats Widget */}
-      <div className="glass-panel p-5">
-        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-accent" /> Network Status
+      {/* ── Network Status ──────────────────────────────────────────────────── */}
+      <div className="glass-panel p-4">
+        <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-sm">
+          <Activity className="w-4 h-4 text-accent" /> Network Status
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-green-400 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+            Polygon Amoy
+          </span>
         </h3>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between items-center text-textMuted">
-            <span>TPS</span>
-            <span className="text-white font-mono">42.5</span>
-          </div>
-          <div className="flex justify-between items-center text-textMuted">
-            <span>Active Nodes</span>
-            <span className="text-green-400 font-mono flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4" /> 1,024
+        <div className="space-y-2.5 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-textMuted flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> Gas Price
+            </span>
+            <span className="text-white font-mono">
+              {network.loading ? <Skeleton className="w-16 h-4" /> : network.gasPrice}
             </span>
           </div>
-          <div className="flex justify-between items-center text-textMuted">
-            <span>Gas Price</span>
-            <span className="text-white font-mono">30 gwei</span>
+          <div className="flex justify-between items-center">
+            <span className="text-textMuted flex items-center gap-1.5">
+              <BarChart2 className="w-3.5 h-3.5" /> Block
+            </span>
+            <span className="text-white font-mono">
+              {network.loading
+                ? <Skeleton className="w-20 h-4" />
+                : `#${network.blockNumber.toLocaleString()}`}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Trending Widget */}
-      <div className="glass-panel p-5 flex-1">
-        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-primary" /> Trending Now
+      {/* ── Platform Stats ──────────────────────────────────────────────────── */}
+      <div className="glass-panel p-4">
+        <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-sm">
+          <BarChart2 className="w-4 h-4 text-primary" /> Platform Stats
         </h3>
-        <div className="space-y-4">
-          {trends.map((trend, i) => (
-            <div key={i} className="group cursor-pointer">
-              <div className="flex items-center gap-2 text-textMuted text-xs mb-1">
-                <span>Trending in Web3</span>
-                {trend.isHot && (
-                  <span className="text-accent text-[10px] uppercase font-bold border border-accent/30 bg-accent/10 px-1.5 rounded-sm">
-                    Hot
-                  </span>
-                )}
-              </div>
-              <div className="font-bold text-white group-hover:text-primary transition-colors text-lg">
-                {trend.tag}
-              </div>
-              <div className="text-textMuted text-xs mt-1">{trend.posts} posts</div>
-            </div>
-          ))}
+        <div className="space-y-2.5 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-textMuted flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" /> Total Posts
+            </span>
+            <span className="text-white font-mono">
+              {platform.loading ? <Skeleton className="w-10 h-4" /> : platform.totalPosts.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-textMuted flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> Profiles
+            </span>
+            <span className="text-white font-mono">
+              {platform.loading ? <Skeleton className="w-10 h-4" /> : platform.totalProfiles.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-textMuted flex items-center gap-1.5">
+              <Coins className="w-3.5 h-3.5" /> BLOCX Supply
+            </span>
+            <span className="text-primary font-mono font-semibold">
+              {platform.loading ? <Skeleton className="w-14 h-4" /> : platform.blocxSupply}
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* ── Live Governance ─────────────────────────────────────────────────── */}
+      {!propLoading && proposal && (
+        <div className="glass-panel p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
+              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-400 animate-pulse' : 'bg-textMuted'}`} />
+              {isActive ? 'Live Vote' : 'Latest Proposal'}
+            </h3>
+            <Link
+              to="/governance"
+              className="text-xs text-primary hover:text-accent transition-colors flex items-center gap-0.5"
+            >
+              View all <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <p className="text-white text-sm font-medium leading-snug mb-3 line-clamp-2">
+            {proposal.title}
+          </p>
+
+          {/* Vote bar */}
+          <div className="mb-2">
+            <div className="flex text-xs text-textMuted mb-1 justify-between">
+              <span className="text-green-400">Yes {yesPct}%</span>
+              <span>{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden flex">
+              <div
+                className="h-full bg-green-500/70 transition-all duration-500"
+                style={{ width: `${yesPct}%` }}
+              />
+              <div
+                className="h-full bg-red-500/70 transition-all duration-500"
+                style={{ width: `${totalVotes > 0 ? Math.round((proposal.noVotes / totalVotes) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-textMuted flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatCountdown(proposal.endTime)}
+            </span>
+            {isActive && (
+              <Link
+                to="/governance"
+                className="text-xs font-semibold bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 px-2.5 py-1 rounded-full transition-colors"
+              >
+                Vote →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
