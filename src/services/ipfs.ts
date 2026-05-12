@@ -68,27 +68,39 @@ export const uploadFileToIPFS = async (file: File): Promise<string> => {
   }
 };
 
-// Gateway priority: Pinata (our upload provider) → dweb.link → ipfs.io
+// dweb.link first — most reliable across networks; Pinata/ipfs.io as fallbacks
 const GATEWAYS = [
-  'https://gateway.pinata.cloud/ipfs/',
   'https://dweb.link/ipfs/',
+  'https://nftstorage.link/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
   'https://ipfs.io/ipfs/',
 ];
 
-export const resolveIPFSUrl = (url: string | null | undefined, gatewayIndex = 0): string => {
-  if (!url) return "";
-  const gw = GATEWAYS[Math.min(gatewayIndex, GATEWAYS.length - 1)];
-  if (url.startsWith("ipfs://")) return url.replace("ipfs://", gw);
-  if (url.startsWith("Qm") || url.startsWith("bafy")) return `${gw}${url}`;
+// Extract raw CID from any IPFS URL format
+export function extractCID(url: string): string | null {
+  if (!url) return null;
+  if (url.startsWith('ipfs://')) return url.slice(7);
+  const match = url.match(/\/ipfs\/(.+)/);
+  if (match) return match[1];
+  if (url.startsWith('Qm') || url.startsWith('bafy')) return url;
+  return null;
+}
+
+// Normalize any IPFS reference to use the primary gateway (dweb.link)
+export const resolveIPFSUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  const cid = extractCID(url);
+  if (cid) return `${GATEWAYS[0]}${cid}`;
   return url;
 };
 
 // Fetch with automatic gateway fallback
-export async function fetchIPFS(cid: string): Promise<Response> {
+export async function fetchIPFS(cidOrUrl: string): Promise<Response> {
+  const cid = extractCID(cidOrUrl) ?? cidOrUrl;
   let lastError: Error = new Error('All IPFS gateways failed');
   for (const gw of GATEWAYS) {
     try {
-      const res = await fetch(`${gw}${cid.replace('ipfs://', '')}`, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(`${gw}${cid}`, { signal: AbortSignal.timeout(8000) });
       if (res.ok) return res;
     } catch (e) {
       lastError = e as Error;

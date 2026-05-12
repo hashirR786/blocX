@@ -46,35 +46,55 @@ const isApplicationMsg = (msg: DecodedMessage) =>
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const EnableXMTP: React.FC<{ onEnable: () => void; loading: boolean; error: string | null }> = ({ onEnable, loading, error }) => (
-  <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/40 to-accent/40 border border-white/10 flex items-center justify-center">
-      <ShieldCheck className="w-10 h-10 text-primary" />
-    </div>
-    <div>
-      <h2 className="text-2xl font-bold text-white mb-2">Enable Secure Messaging</h2>
-      <p className="text-textMuted text-sm max-w-xs">
-        BlocX uses <span className="text-primary font-medium">XMTP V3</span> — your messages are end-to-end encrypted using your wallet keys.
-        You'll sign a free message to unlock your inbox.
-      </p>
-    </div>
-    {error && (
-      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-        <AlertCircle className="w-4 h-4 shrink-0" />
-        <span>{error}</span>
+const EnableXMTP: React.FC<{ onEnable: () => void; loading: boolean; error: string | null }> = ({ onEnable, loading, error }) => {
+  const isNetworkBlocked = error === 'NETWORK_BLOCKED';
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/40 to-accent/40 border border-white/10 flex items-center justify-center">
+        <ShieldCheck className="w-10 h-10 text-primary" />
       </div>
-    )}
-    <button
-      onClick={onEnable}
-      disabled={loading}
-      className="glass-button px-8 py-3 text-white font-bold flex items-center gap-3 disabled:opacity-50"
-    >
-      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-      {loading ? 'Unlocking…' : 'Enable Messaging'}
-    </button>
-    <p className="text-textMuted text-xs">No gas fees • Free forever • Works across all XMTP apps</p>
-  </div>
-);
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Enable Secure Messaging</h2>
+        <p className="text-textMuted text-sm max-w-xs">
+          BlocX uses <span className="text-primary font-medium">XMTP V3</span> — your messages are end-to-end encrypted using your wallet keys.
+          You'll sign a free message to unlock your inbox.
+        </p>
+      </div>
+
+      {isNetworkBlocked ? (
+        <div className="w-full max-w-sm rounded-2xl bg-yellow-500/10 border border-yellow-500/30 p-4 text-left space-y-2">
+          <p className="text-yellow-300 font-semibold text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            XMTP servers are unreachable on this network
+          </p>
+          <p className="text-yellow-200/70 text-xs leading-relaxed">
+            Your network or firewall is blocking the XMTP messaging service. To fix this:
+          </p>
+          <ul className="text-yellow-200/70 text-xs space-y-1 list-disc list-inside">
+            <li>Switch to a <strong className="text-yellow-200">mobile hotspot</strong></li>
+            <li>Disable any VPN or proxy</li>
+            <li>Try a different Wi-Fi network</li>
+          </ul>
+        </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm max-w-sm">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      <button
+        onClick={onEnable}
+        disabled={loading}
+        className="glass-button px-8 py-3 text-white font-bold flex items-center gap-3 disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+        {loading ? 'Unlocking…' : isNetworkBlocked ? 'Try Again' : 'Enable Messaging'}
+      </button>
+      <p className="text-textMuted text-xs">No gas fees • Free forever • Works across all XMTP apps</p>
+    </div>
+  );
+};
 
 const NewConversationModal: React.FC<{
   onClose: () => void;

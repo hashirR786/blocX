@@ -61,7 +61,17 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
 
 
+      // Pre-flight: check if XMTP network is reachable before asking for signature
       console.log("Initializing XMTP V3 client (Production)...");
+      const reachable = await fetch('https://grpc.production.xmtp.network', {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+        mode: 'no-cors', // avoids CORS block; we only care about whether the connection works
+      }).then(() => true).catch(() => false);
+
+      if (!reachable) {
+        throw new Error('NETWORK_UNREACHABLE');
+      }
 
       // Retry up to 3 times — XMTP identity API can transiently fail
       let xmtpClient: Client | null = null;
@@ -85,8 +95,8 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error("CRITICAL: Failed to initialize XMTP client:", err);
       const msg: string = err.message || '';
-      if (msg.includes('Failed to fetch') || msg.includes('Unknown error')) {
-        setError("Can't reach XMTP network. Check your connection and try again.");
+      if (msg === 'NETWORK_UNREACHABLE' || msg.includes('Failed to fetch') || msg.includes('Unknown error')) {
+        setError("NETWORK_BLOCKED");
       } else {
         setError(msg || "Failed to initialize messaging");
       }
