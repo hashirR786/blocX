@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     <aside className="h-full w-full glass-panel flex flex-col items-center xl:items-start py-6 px-2 xl:px-5">
       {/* Logo */}
       <div className="w-full flex items-center justify-center xl:justify-start mb-8 px-2">
-        <h1 className="text-3xl glow-text hidden xl:block">
+        <h1 className="text-3xl font-extrabold glow-text tracking-tighter hidden xl:block">
           blocX
         </h1>
         <div className="xl:hidden w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">

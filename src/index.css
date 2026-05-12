@@ -1,112 +1,70 @@
-/* ─── Fonts ──────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=DM+Serif+Display:ital@0;1&display=swap');
-
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
 @theme {
-  --color-background:   var(--background);
-  --color-surface:      var(--surface);
-  --color-surface-hover:var(--surface-hover);
-  --color-primary:      #7C6FD4;   /* muted indigo — refined, not neon */
-  --color-primaryHover: #6B60C0;
-  --color-accent:       #9D93E8;   /* soft lavender — replaces cyan */
-  --color-textMain:     var(--text-main);
-  --color-textMuted:    var(--text-muted);
-  --color-border:       var(--border);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-primary: #8b5cf6; /* Violet */
+  --color-primaryHover: #7c3aed;
+  --color-accent: #06b6d4; /* Cyan */
+  --color-textMain: var(--text-main);
+  --color-textMuted: var(--text-muted);
+  --color-border: var(--border);
   --color-border-light: var(--border-light);
 }
 
-/* ─── Base ───────────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --background:    #0D0D0F;
-    --surface:       rgba(18, 18, 21, 0.88);
-    --surface-hover: rgba(27, 27, 32, 0.96);
-    --text-main:     #EEEEF2;
-    --text-muted:    #78788A;
-    --border:        rgba(255, 255, 255, 0.07);
-    --border-light:  rgba(255, 255, 255, 0.12);
+    /* Forced Dark Mode Theme */
+    --background: #0B0C10;
+    --surface: rgba(26, 27, 35, 0.6);
+    --surface-hover: rgba(40, 42, 54, 0.8);
+    --text-main: #FFFFFF;
+    --text-muted: #8B949E;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.15);
   }
 
   body {
     background-color: var(--background);
     color: var(--text-main);
     min-height: 100vh;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    /* single subtle top-center vignette — no colorful blobs */
-    background-image: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(124, 111, 212, 0.06), transparent);
+    /* Ambient glow backgrounds */
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.08), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.08), transparent 25%);
     background-attachment: fixed;
   }
-
-  /* tighten default heading tracking */
-  h1, h2, h3, h4, h5 {
-    letter-spacing: -0.02em;
-  }
 }
 
-/* ─── Utilities ──────────────────────────────────────────────────────────── */
+/* Glassmorphism utilities */
 @layer utilities {
-  /* frosted glass panel — premium dark card */
   .glass-panel {
-    background: var(--surface);
-    backdrop-filter: blur(24px) saturate(140%);
-    -webkit-backdrop-filter: blur(24px) saturate(140%);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow:
-      0 1px 0 rgba(255,255,255,0.05) inset,
-      0 8px 32px rgba(0,0,0,0.45),
-      0 1px 2px rgba(0,0,0,0.3);
+    @apply bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-2xl shadow-xl;
   }
-
   .glass-button {
-    background: rgba(255,255,255,0.04);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    transition: background 200ms ease, border-color 200ms ease;
+    @apply bg-white/5 hover:bg-white/10 backdrop-blur-md border border-[var(--border)] rounded-xl transition-all duration-300;
   }
-  .glass-button:hover {
-    background: rgba(255,255,255,0.08);
-    border-color: var(--border-light);
-  }
-
-  /* wordmark — DM Serif Display italic */
   .glow-text {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-style: italic;
-    color: #EEEEF2;
-    letter-spacing: -0.04em;
-  }
-
-  /* utility: very subtle section label */
-  .label-caps {
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4];
   }
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
-
-/* ─── Selection ──────────────────────────────────────────────────────────── */
-::selection {
-  background: rgba(124,111,212,0.35);
-  color: #fff;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

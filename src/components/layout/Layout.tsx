@@ -79,7 +79,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <main className="flex-1 min-w-0 max-w-[650px] flex flex-col min-h-screen pb-[80px] md:pb-6 relative z-10">
           {/* Mobile Top Header */}
           <div className="md:hidden sticky top-0 z-20 bg-[#0B0C10]/80 backdrop-blur-xl border-b border-[var(--border)] py-3 px-4 mb-4 flex justify-between items-center shadow-lg">
-             <h1 className="text-2xl glow-text">blocX</h1>
+             <h1 className="text-2xl font-extrabold glow-text tracking-tighter">blocX</h1>
              <ConnectWallet />
           </div>
           
