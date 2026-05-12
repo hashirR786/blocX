@@ -19,7 +19,7 @@ contract BlocXProfile is ERC721URIStorage, Ownable {
         require(!hasProfile[msg.sender], "Wallet already has a profile");
 
         uint256 tokenId = _nextTokenId++;
-        
+
         hasProfile[msg.sender] = true;
         addressToProfileId[msg.sender] = tokenId;
 
@@ -27,5 +27,11 @@ contract BlocXProfile is ERC721URIStorage, Ownable {
         _setTokenURI(tokenId, profileURI);
 
         return tokenId;
+    }
+
+    function updateProfile(string memory newProfileURI) external {
+        require(hasProfile[msg.sender], "No profile exists");
+        uint256 tokenId = addressToProfileId[msg.sender];
+        _setTokenURI(tokenId, newProfileURI);
     }
 }

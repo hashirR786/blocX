@@ -9,6 +9,7 @@ import { Contract, parseUnits } from 'ethers';
 import { useQueryClient } from '@tanstack/react-query';
 import CommentThread from './CommentThread';
 import type { Post } from '../../hooks/usePosts';
+import { useProfileData } from '../../hooks/useProfileData';
 
 interface PostCardProps {
   post: Post;
@@ -22,6 +23,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Resolve author's on-chain profile (name + avatar visible to all users)
+  const onChainProfile = useProfileData(post.author.address);
+  const displayName = onChainProfile?.name || post.author.name || 'Web3 User';
+  const displayAvatar = onChainProfile?.avatar || post.author.avatar;
 
   const { provider, address } = useWallet();
   const { setTxState, setTxMessage } = useTransaction();
@@ -120,17 +126,21 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       <div className="flex gap-4 relative z-10">
         <div className="shrink-0">
           <img
-            src={post.author.avatar}
+            src={displayAvatar}
             alt="Avatar"
             crossOrigin="anonymous"
             className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shadow-lg"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author.address}`;
+            }}
           />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <h4 className="font-bold text-white text-lg truncate tracking-tight">{post.author.name || 'Web3 User'}</h4>
+              <h4 className="font-bold text-white text-lg truncate tracking-tight">{displayName}</h4>
               <span className="text-sm text-textMuted font-mono">@{post.author.address.slice(0, 6)}</span>
               <span className="w-1 h-1 rounded-full bg-textMuted mx-1" />
               <span className="text-sm text-textMuted">{post.timestamp}</span>
