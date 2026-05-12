@@ -70,7 +70,10 @@ export function useUserSearch() {
     try {
       const contract = getReadContract(provider);
 
-      if (isAddress(q)) {
+      // Store as plain boolean — calling isAddress(q) directly in an if-condition
+      // acts as a type predicate and narrows q to never in the else branch.
+      const isAddr: boolean = isAddress(q);
+      if (isAddr) {
         const profile = await resolveProfile(q, contract);
         setResults(profile ? [profile] : []);
       } else {
