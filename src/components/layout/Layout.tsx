@@ -4,15 +4,11 @@ import RightSidebar from './RightSidebar';
 import CreatePost from '../post/CreatePost';
 import TransactionOverlay from '../common/TransactionOverlay';
 import ConnectWallet from '../common/ConnectWallet';
-import { X, Home, User, Bell, Zap, MessageSquare, Vote } from 'lucide-react';
+import { X, Home, User, Zap, MessageSquare, Vote } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
-import { useNotifications } from '../../contexts/NotificationsContext';
-
-
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const { unreadCount } = useNotifications();
 
   return (
     <div className="min-h-screen bg-background flex justify-center relative overflow-x-hidden">
