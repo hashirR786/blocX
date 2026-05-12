@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Activity, Search, Loader2, UserX, Zap, Users, FileText,
-  Coins, ChevronRight, Clock, BarChart2,
+  Activity, Search, Loader2, UserX, Zap,
+  ChevronRight, Clock, BarChart2, Newspaper, ExternalLink,
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUserSearch } from '../../hooks/useUserSearch';
 import type { UserProfile } from '../../hooks/useUserSearch';
-import { useNetworkStats, usePlatformStats, useLatestProposal } from '../../hooks/useChainStats';
+import { useNetworkStats, useWeb3News, useLatestProposal } from '../../hooks/useChainStats';
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
   let timer: ReturnType<typeof setTimeout>;
@@ -14,6 +14,13 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), ms);
   };
+}
+
+function timeAgo(unix: number): string {
+  const diff = Math.floor(Date.now() / 1000) - unix;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 function formatCountdown(endTime: number): string {
@@ -36,7 +43,7 @@ const RightSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { results, isSearching, search } = useUserSearch();
   const network  = useNetworkStats();
-  const platform = usePlatformStats();
+  const { news, loading: newsLoading } = useWeb3News();
   const { proposal, loading: propLoading } = useLatestProposal();
 
   const [query, setQuery]               = useState('');
@@ -167,37 +174,45 @@ const RightSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Platform Stats ──────────────────────────────────────────────────── */}
+      {/* ── Web3 News ───────────────────────────────────────────────────────── */}
       <div className="glass-panel p-4">
         <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-sm">
-          <BarChart2 className="w-4 h-4 text-primary" /> Platform Stats
+          <Newspaper className="w-4 h-4 text-primary" /> Web3 News
         </h3>
-        <div className="space-y-2.5 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-textMuted flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5" /> Total Posts
-            </span>
-            <span className="text-white font-mono">
-              {platform.loading ? <Skeleton className="w-10 h-4" /> : platform.totalPosts.toLocaleString()}
-            </span>
+        {newsLoading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <Skeleton className="w-full h-3" />
+                <Skeleton className="w-3/4 h-3" />
+              </div>
+            ))}
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-textMuted flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" /> Profiles
-            </span>
-            <span className="text-white font-mono">
-              {platform.loading ? <Skeleton className="w-10 h-4" /> : platform.totalProfiles.toLocaleString()}
-            </span>
+        ) : news.length === 0 ? (
+          <p className="text-textMuted text-xs text-center py-3">Could not load news</p>
+        ) : (
+          <div className="space-y-3">
+            {news.map(item => (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block"
+              >
+                <p className="text-white text-xs font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  {item.title}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-textMuted text-[10px]">{item.source}</span>
+                  <span className="text-textMuted text-[10px]">·</span>
+                  <span className="text-textMuted text-[10px]">{timeAgo(item.publishedOn)}</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-textMuted opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                </div>
+              </a>
+            ))}
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-textMuted flex items-center gap-1.5">
-              <Coins className="w-3.5 h-3.5" /> BLOCX Supply
-            </span>
-            <span className="text-primary font-mono font-semibold">
-              {platform.loading ? <Skeleton className="w-14 h-4" /> : platform.blocxSupply}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ── Live Governance ─────────────────────────────────────────────────── */}

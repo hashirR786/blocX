@@ -2,6 +2,45 @@ import { useEffect, useState, useCallback } from 'react';
 import { JsonRpcProvider, Contract, formatUnits, ZeroAddress } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
 
+// ── Web3 News (CryptoCompare — no API key required) ──────────────────────────
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  publishedOn: number; // unix timestamp
+}
+
+export function useWeb3News(): { news: NewsItem[]; loading: boolean } {
+  const [news,    setNews]    = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(
+      'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=popular&limit=6&categories=Blockchain,ETH,Technology',
+      { signal: AbortSignal.timeout(8000) }
+    )
+      .then(r => r.json())
+      .then((json: any) => {
+        if (cancelled) return;
+        const items: NewsItem[] = (json.Data ?? []).map((d: any) => ({
+          id:          String(d.id),
+          title:       d.title,
+          url:         d.url,
+          source:      d.source_info?.name ?? d.source,
+          publishedOn: d.published_on,
+        }));
+        setNews(items);
+      })
+      .catch(() => { /* silently skip on network error */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { news, loading };
+}
+
 const AMOY_RPC = 'https://rpc-amoy.polygon.technology/';
 
 export interface NetworkStats {
