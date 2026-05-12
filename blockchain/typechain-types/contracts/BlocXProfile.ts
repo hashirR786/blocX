@@ -45,6 +45,7 @@ export interface BlocXProfileInterface extends Interface {
       | "tokenURI"
       | "transferFrom"
       | "transferOwnership"
+      | "updateProfile"
   ): FunctionFragment;
 
   getEvent(
@@ -124,6 +125,10 @@ export interface BlocXProfileInterface extends Interface {
     functionFragment: "transferOwnership",
     values: [AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "updateProfile",
+    values: [string]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "addressToProfileId",
@@ -175,6 +180,10 @@ export interface BlocXProfileInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "transferOwnership",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "updateProfile",
     data: BytesLike
   ): Result;
 }
@@ -404,6 +413,12 @@ export interface BlocXProfile extends BaseContract {
     "nonpayable"
   >;
 
+  updateProfile: TypedContractMethod<
+    [newProfileURI: string],
+    [void],
+    "nonpayable"
+  >;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
@@ -494,6 +509,9 @@ export interface BlocXProfile extends BaseContract {
   getFunction(
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "updateProfile"
+  ): TypedContractMethod<[newProfileURI: string], [void], "nonpayable">;
 
   getEvent(
     key: "Approval"
