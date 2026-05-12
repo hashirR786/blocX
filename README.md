@@ -262,12 +262,8 @@ Random and harmful inputs were provided during post creation to test the robustn
 ---
 
 # Future Enhancements
-
-- NFT Profile Verification
-- Real-Time Messaging
 - Cross-Chain Support
 - Advanced Recommendation Engine
-- Fully Decentralized DAO Governance
 - Token Marketplace
 
 ---
