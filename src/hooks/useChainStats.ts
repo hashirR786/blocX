@@ -68,28 +68,41 @@ export function usePlatformStats(): PlatformStats {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const provider = rpc();
+
+      // Fetch current block so we can use an absolute range (avoids negative-offset quirks)
+      let fromBlock = 0;
       try {
-        const provider = rpc();
-        const social  = new Contract(CONTRACT_ADDRESSES.social,  ABIs.social,  provider);
+        const latest = await provider.getBlockNumber();
+        fromBlock = Math.max(0, latest - 100_000);
+      } catch { /* use 0 as fallback */ }
+
+      // Each stat is independent — a failure in one does not zero out the others
+      let totalPosts    = 0;
+      let totalProfiles = 0;
+      let blocxSupply   = '0';
+
+      try {
+        const social = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, provider);
+        const events = await social.queryFilter(social.filters.PostCreated(), fromBlock, 'latest');
+        totalPosts = events.length;
+      } catch (e) { console.warn('[Stats] postCount failed:', e); }
+
+      try {
         const profile = new Contract(CONTRACT_ADDRESSES.profile, ABIs.profile, provider);
-        const token   = new Contract(CONTRACT_ADDRESSES.token,   ABIs.token,   provider);
+        const events  = await profile.queryFilter(
+          profile.filters.Transfer(ZeroAddress, null, null), fromBlock, 'latest'
+        );
+        totalProfiles = events.length;
+      } catch (e) { console.warn('[Stats] profileCount failed:', e); }
 
-        const [postEvents, profileEvents, supply] = await Promise.all([
-          social.queryFilter(social.filters.PostCreated(), -200_000),
-          profile.queryFilter(profile.filters.Transfer(ZeroAddress, null, null), -200_000),
-          token.totalSupply(),
-        ]);
+      try {
+        const token   = new Contract(CONTRACT_ADDRESSES.token, ABIs.token, provider);
+        const supply  = await token.totalSupply();
+        blocxSupply   = Math.floor(Number(formatUnits(supply as bigint, 18))).toLocaleString();
+      } catch (e) { console.warn('[Stats] blocxSupply failed:', e); }
 
-        if (cancelled) return;
-        setState({
-          totalPosts:    postEvents.length,
-          totalProfiles: profileEvents.length,
-          blocxSupply:   Math.floor(Number(formatUnits(supply as bigint, 18))).toLocaleString(),
-          loading:       false,
-        });
-      } catch {
-        if (!cancelled) setState(s => ({ ...s, loading: false }));
-      }
+      if (!cancelled) setState({ totalPosts, totalProfiles, blocxSupply, loading: false });
     })();
     return () => { cancelled = true; };
   }, []);
