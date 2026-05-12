@@ -4,7 +4,7 @@ import RightSidebar from './RightSidebar';
 import CreatePost from '../post/CreatePost';
 import TransactionOverlay from '../common/TransactionOverlay';
 import ConnectWallet from '../common/ConnectWallet';
-import { X, Home, User, Bell, Zap, MessageSquare } from 'lucide-react';
+import { X, Home, User, Bell, Zap, MessageSquare, Vote } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { useNotifications } from '../../contexts/NotificationsContext';
@@ -42,25 +42,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <NavLink to="/" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
             <Home className="w-6 h-6" />
           </NavLink>
-          <NavLink to="/messages" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
-            <MessageSquare className="w-6 h-6" />
+          <NavLink to="/governance" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <Vote className="w-6 h-6" />
           </NavLink>
-          
+
           {/* Center Post Button */}
-          <button 
+          <button
             onClick={() => setIsPostModalOpen(true)}
             className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] -mt-8 border-4 border-[#0B0C10] transition-transform active:scale-95"
           >
             <Zap className="w-6 h-6 fill-white" />
           </button>
 
-          <NavLink to="/notifications" className={({isActive}) => cn("p-3 rounded-xl transition-all relative", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
-            <Bell className="w-6 h-6" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center leading-none">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+          <NavLink to="/messages" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+            <MessageSquare className="w-6 h-6" />
           </NavLink>
           <NavLink to="/profile" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
             <User className="w-6 h-6" />
