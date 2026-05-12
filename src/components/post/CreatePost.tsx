@@ -1,29 +1,47 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
 import { useTransaction } from '../../contexts/TransactionContext';
-import { Image as ImageIcon, ShieldAlert, X, Zap } from 'lucide-react';
+import { Image as ImageIcon, ShieldAlert, X, Zap, UserCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadFileToIPFS, uploadJSONToIPFS } from '../../services/ipfs';
 import { moderateContent } from '../../services/moderation';
 import { Contract, parseUnits } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../../config/contracts';
+import { useNavigate } from 'react-router-dom';
 
 interface CreatePostProps {
   onClose?: () => void;
 }
 
+const GAS = {
+  maxPriorityFeePerGas: parseUnits('30', 'gwei'),
+  maxFeePerGas: parseUnits('40', 'gwei'),
+};
+
 const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
   const { address, provider } = useWallet();
   const { setTxState, setTxMessage } = useTransaction();
-  
+  const navigate = useNavigate();
+
   const [content, setContent] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
   const [modError, setModError] = useState<string | null>(null);
-  
+  const [noProfileError, setNoProfileError] = useState(false);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if wallet has an on-chain profile (required by BlocXSocial)
+  useEffect(() => {
+    if (!address || !provider) return;
+    const contract = new Contract(CONTRACT_ADDRESSES.profile, ABIs.profile, provider);
+    contract.hasProfile(address).then((has: boolean) => {
+      if (!has) setNoProfileError(true);
+      else setNoProfileError(false);
+    }).catch(() => {});
+  }, [address, provider]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -41,16 +59,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
   const handlePost = async () => {
     if ((!content.trim() && !selectedFile) || !provider) return;
-    
+    if (noProfileError) return;
+
     setIsPublishing(true);
     setTxState('awaiting_signature');
-    
+
     try {
       setModError(null);
-      // 1. Run AI Moderation
+
+      // 1. AI Moderation
       setShowModeration(true);
       const modResult = await moderateContent(content, selectedFile);
-      
       if (modResult.isFlagged) {
         setShowModeration(false);
         setIsPublishing(false);
@@ -58,87 +77,93 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
         setModError(modResult.reason || 'Flagged by AI Moderation');
         return;
       }
-      
       await new Promise(resolve => setTimeout(resolve, 500));
       setShowModeration(false);
-      
+
+      // 2. Upload media to IPFS
       let mediaUri = null;
-      
-      // 2. Upload Image to IPFS if exists
-      if (selectedFile) {
-        mediaUri = await uploadFileToIPFS(selectedFile);
-      }
-      
-      // 3. Upload Post Metadata to IPFS
-      const postMetadata = {
+      if (selectedFile) mediaUri = await uploadFileToIPFS(selectedFile);
+
+      // 3. Upload post metadata to IPFS
+      const metadataUri = await uploadJSONToIPFS({
         content: content.trim(),
         media: mediaUri,
         author: address,
-        timestamp: Date.now()
-      };
-      
-      const metadataUri = await uploadJSONToIPFS(postMetadata);
-      
-      // 4. Create Post on Blockchain
+        timestamp: Date.now(),
+      });
+
+      // 4. Create post on-chain
       const signer = await provider.getSigner();
       const socialContract = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, signer);
-      
-      const tx = await socialContract.createPost(metadataUri, {
-        maxPriorityFeePerGas: parseUnits('30', 'gwei'),
-        maxFeePerGas: parseUnits('40', 'gwei')
-      });
-      
+      const tx = await socialContract.createPost(metadataUri, GAS);
+
       setTxState('mining');
-      await tx.wait(); // Wait for mining
-      
-      setTxMessage("Post submitted to network successfully!");
+      await tx.wait();
+
+      setTxMessage('Post submitted to network successfully!');
       setTxState('success');
 
-      // Reset form
       setContent('');
       clearFile();
       onClose?.();
-      
     } catch (error: any) {
-      console.error("Failed to create post:", error);
-      setTxMessage(error.reason || error.message || "Failed to create post.");
+      console.error('Failed to create post:', error);
+      const reason = error.reason || error.message || 'Failed to create post.';
+      setTxMessage(reason);
       setTxState('error');
     } finally {
       setIsPublishing(false);
-      setTimeout(() => {
-        if (useTransaction().txState !== 'idle') setTxState('idle');
-      }, 3000);
+      setTimeout(() => setTxState('idle'), 3000);
     }
   };
 
   if (!address) return null;
 
-  const currentAvatar = localStorage.getItem(`profileAvatar_${address}`) || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`;
+  const currentAvatar = localStorage.getItem(`profileAvatar_${address}`)
+    || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`;
 
   return (
     <div className="glass-panel p-5 mb-6 relative overflow-hidden group">
       <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-50 pointer-events-none" />
-      
+
+      {/* No profile banner */}
+      {noProfileError && (
+        <div className="relative z-10 mb-4 flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-sm text-yellow-300">
+          <UserCircle className="w-5 h-5 shrink-0" />
+          <span>You need an on-chain profile to post.</span>
+          <button
+            onClick={() => { onClose?.(); navigate('/profile'); }}
+            className="ml-auto shrink-0 font-bold underline underline-offset-2 hover:text-yellow-100 transition-colors"
+          >
+            Set up profile →
+          </button>
+        </div>
+      )}
+
       <div className="flex gap-4 relative z-10">
-        <img 
-          src={currentAvatar} 
-          alt="Avatar" 
-          className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shrink-0 cursor-pointer shadow-lg object-cover" 
+        <img
+          src={currentAvatar}
+          alt="Avatar"
+          className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shrink-0 cursor-pointer shadow-lg object-cover"
         />
         <div className="flex-1 min-w-0">
-          <textarea 
+          <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="What is happening?!"
+            placeholder={noProfileError ? 'Set up your profile first…' : 'What is happening?!'}
             className="w-full bg-transparent border-none focus:outline-none text-white text-xl resize-none placeholder:text-textMuted/50 pt-2"
             rows={content.split('\n').length > 2 ? content.split('\n').length : 2}
-            disabled={isPublishing}
+            disabled={isPublishing || noProfileError}
           />
-          
+
           {previewUrl && (
             <div className="relative mt-2 mb-2">
-              <img src={previewUrl} alt="Upload preview" className="rounded-xl max-h-[400px] object-cover w-full border border-[var(--border)] shadow-lg" />
-              <button 
+              <img
+                src={previewUrl}
+                alt="Upload preview"
+                className="rounded-xl max-h-[400px] object-cover w-full border border-[var(--border)] shadow-lg"
+              />
+              <button
                 onClick={clearFile}
                 className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 text-white rounded-lg transition-colors backdrop-blur-md"
               >
@@ -146,10 +171,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
               </button>
             </div>
           )}
-          
+
           <AnimatePresence>
             {showModeration && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
@@ -160,7 +185,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
               </motion.div>
             )}
             {modError && !isPublishing && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
@@ -174,25 +199,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
           <div className="flex items-center justify-between pt-4 border-t border-[var(--border)] mt-2">
             <div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                accept="image/*" 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*"
+                className="hidden"
               />
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isPublishing}
+                disabled={isPublishing || noProfileError}
                 className="p-2.5 text-primary hover:bg-primary/20 rounded-xl transition-colors disabled:opacity-50 border border-transparent hover:border-primary/30"
               >
                 <ImageIcon className="w-5 h-5" />
               </button>
             </div>
-            
-            <button 
+
+            <button
               onClick={handlePost}
-              disabled={(!content.trim() && !selectedFile) || isPublishing}
+              disabled={(!content.trim() && !selectedFile) || isPublishing || noProfileError}
               className="px-6 py-2.5 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20"
             >
               <Zap className="w-4 h-4" />
