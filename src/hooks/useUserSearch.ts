@@ -73,25 +73,27 @@ export function useUserSearch() {
       if (isAddress(q)) {
         const profile = await resolveProfile(q, contract);
         setResults(profile ? [profile] : []);
-        return;
+      } else {
+        // Name search — enumerate all minted profiles via Transfer(from=0x0) events
+        const filter = contract.filters.Transfer(ZeroAddress, null, null);
+        const events = await contract.queryFilter(filter, -100000);
+
+        const addresses = [...new Set(events.map((e: any) => e.args[1] as string))];
+
+        const resolved: Array<UserProfile | null> = await Promise.all(
+          addresses.map(addr => resolveProfile(addr, contract))
+        );
+
+        const ql = q.toLowerCase();
+        const filtered: UserProfile[] = [];
+        for (const p of resolved) {
+          if (p && (p.name.toLowerCase().includes(ql) || p.address.toLowerCase().includes(ql))) {
+            filtered.push(p);
+          }
+        }
+
+        setResults(filtered.slice(0, 20));
       }
-
-      // Name search — enumerate all minted profiles via Transfer(from=0x0) events
-      const filter = contract.filters.Transfer(ZeroAddress, null, null);
-      const events = await contract.queryFilter(filter, -100000);
-
-      const addresses = [...new Set(events.map((e: any) => e.args[1] as string))];
-
-      const profiles = await Promise.all(
-        addresses.map(addr => resolveProfile(addr, contract))
-      );
-
-      const ql = q.toLowerCase();
-      const filtered = profiles
-        .filter((p): p is UserProfile => p !== null && p !== undefined)
-        .filter(p => p.name.toLowerCase().includes(ql) || p.address.toLowerCase().includes(ql));
-
-      setResults(filtered.slice(0, 20));
     } catch (err) {
       console.error('Search error:', err);
       setResults([]);
