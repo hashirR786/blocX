@@ -71,6 +71,9 @@ export const usePosts = () => {
             break;
           }
 
+          // Skip soft-deleted posts
+          if (postData.isDeleted) continue;
+
           const author = postData.author;
           const contentHash = postData.contentHash;
 
@@ -144,7 +147,7 @@ export const usePosts = () => {
             content,
             timestamp: formatTime(Number(postData.timestamp)),
             likes: Number(postData.likeCount),
-            comments: 0,
+            comments: Number(postData.commentCount),
             isLiked,
             media,
           });

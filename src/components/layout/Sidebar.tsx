@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, User, Vote, Bell, Zap, LogOut, MessageSquare } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useWallet } from '../../contexts/WalletContext';
+import { useNotifications } from '../../contexts/NotificationsContext';
 
 interface SidebarProps {
   onPostClick?: () => void;
@@ -10,6 +11,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const { address, connect, isConnecting, disconnect } = useWallet();
+  const { unreadCount } = useNotifications();
   const links = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Profile', path: '/profile', icon: User },
@@ -47,8 +49,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
                 )
               }
             >
-              <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg transition-colors")}>
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-colors">
                 <Icon className="w-6 h-6" strokeWidth={2} />
+                {link.path === '/notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </div>
               <span className="hidden xl:block text-lg font-medium">{link.name}</span>
             </NavLink>

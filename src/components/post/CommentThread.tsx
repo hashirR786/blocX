@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { X, Send, Loader2, ShieldAlert } from 'lucide-react';
+import { X, Send, Loader2, ShieldAlert, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useComments } from '../../hooks/useComments';
 import { useWallet } from '../../contexts/WalletContext';
 
 interface CommentThreadProps {
   post: any;
-  onClose: () => void;
+  onClose: (count?: number) => void;
 }
 
 function timeAgo(ms: number): string {
@@ -21,9 +21,11 @@ function timeAgo(ms: number): string {
 
 const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
   const { address } = useWallet();
-  const { comments, addComment, isPosting } = useComments(post.id);
+  const { comments, isLoading, isPosting, deletingId, addComment, deleteComment } = useComments(post.id);
   const [text, setText] = useState('');
   const [modError, setModError] = useState<string | null>(null);
+
+  const postAuthorAddress = post.author.address.toLowerCase();
 
   const handleSubmit = async () => {
     if (!text.trim() || !address) return;
@@ -34,6 +36,10 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
       return;
     }
     setText('');
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    await deleteComment(commentId);
   };
 
   return (
@@ -47,7 +53,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
         {/* Header */}
         <div className="flex items-center gap-4 px-4 py-3 border-b border-[var(--border)] shrink-0 bg-[#13151A]">
           <button
-            onClick={onClose}
+            onClick={() => onClose(comments.length)}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-white" />
@@ -91,7 +97,11 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
           </div>
 
           {/* Comments List */}
-          {comments.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="w-6 h-6 animate-spin text-accent" />
+            </div>
+          ) : comments.length === 0 ? (
             <div className="p-8 text-center text-textMuted flex flex-col items-center justify-center">
               <p className="text-lg font-semibold text-white/80">No replies yet</p>
               <p className="text-sm mt-1">Be the first to reply!</p>
@@ -99,19 +109,24 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
           ) : (
             <div>
               {comments.map((comment) => {
-                const isCurrentUser = address && comment.author.toLowerCase() === address.toLowerCase();
-                const commentAvatar = isCurrentUser 
+                const commentAuthor = comment.author.toLowerCase();
+                const isCommentOwner = address && commentAuthor === address.toLowerCase();
+                const isPostOwner = address && address.toLowerCase() === postAuthorAddress;
+                const canDelete = isCommentOwner || isPostOwner;
+                const isBeingDeleted = deletingId === comment.id;
+
+                const commentAvatar = isCommentOwner
                   ? (localStorage.getItem(`profileAvatar_${address}`) || `https://api.dicebear.com/7.x/identicon/svg?seed=${comment.author}`)
                   : `https://api.dicebear.com/7.x/identicon/svg?seed=${comment.author}`;
-                  
-                const commentName = isCurrentUser
+
+                const commentName = isCommentOwner
                   ? (localStorage.getItem(`profileName_${address}`) || `${comment.author.slice(0, 6)}...${comment.author.slice(-4)}`)
                   : `${comment.author.slice(0, 6)}...${comment.author.slice(-4)}`;
 
                 return (
                   <div
                     key={comment.id}
-                    className="px-4 py-4 sm:px-5 border-b border-[var(--border)] hover:bg-white/5 transition-colors"
+                    className={`px-4 py-4 sm:px-5 border-b border-[var(--border)] hover:bg-white/5 transition-colors ${isBeingDeleted ? 'opacity-50' : ''}`}
                   >
                     <div className="flex gap-3 sm:gap-4">
                       <img
@@ -120,16 +135,31 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
                         className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--border)] shrink-0 border border-white/10 object-cover"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-white text-sm">
-                            {commentName}
-                          </span>
-                          <span className="text-textMuted text-xs font-mono">
-                            @{comment.author.slice(0, 6)}
-                          </span>
-                          <span className="text-textMuted text-xs">
-                            · {timeAgo(comment.timestamp)}
-                          </span>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm">{commentName}</span>
+                            <span className="text-textMuted text-xs font-mono">
+                              @{comment.author.slice(0, 6)}
+                            </span>
+                            <span className="text-textMuted text-xs">
+                              · {timeAgo(comment.timestamp)}
+                            </span>
+                          </div>
+
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              disabled={!!deletingId}
+                              className="p-1.5 text-textMuted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40"
+                              title="Delete comment"
+                            >
+                              {isBeingDeleted ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
                         <p className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">
                           {comment.content}
@@ -143,7 +173,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
           )}
         </div>
 
-        {/* Reply Composer - Fixed to bottom */}
+        {/* Reply Composer — Fixed to bottom */}
         <div className="border-t border-[var(--border)] p-3 sm:p-4 shrink-0 bg-[#13151A]">
           {address ? (
             <div className="flex gap-3 sm:gap-4 items-start">
@@ -164,7 +194,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
 
                 <AnimatePresence>
                   {isPosting && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
@@ -175,7 +205,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ post, onClose }) => {
                     </motion.div>
                   )}
                   {modError && !isPosting && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}

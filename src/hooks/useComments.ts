@@ -1,6 +1,11 @@
-import { useState, useCallback } from 'react';
-import { uploadJSONToIPFS } from '../services/ipfs';
+import { useState, useCallback, useEffect } from 'react';
+import { Contract, JsonRpcProvider, parseUnits } from 'ethers';
+import { useWallet } from '../contexts/WalletContext';
+import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
+import { uploadJSONToIPFS, resolveIPFSUrl } from '../services/ipfs';
 import { moderateContent } from '../services/moderation';
+
+const READ_PROVIDER = new JsonRpcProvider('https://rpc-amoy.polygon.technology');
 
 export interface Comment {
   id: string;
@@ -11,61 +16,118 @@ export interface Comment {
   ipfsCid?: string;
 }
 
-const STORAGE_KEY = (postId: string) => `blocx_comments_${postId}`;
-
-export function getComments(postId: string): Comment[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY(postId));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveComments(postId: string, comments: Comment[]) {
-  localStorage.setItem(STORAGE_KEY(postId), JSON.stringify(comments));
-}
-
 export function useComments(postId: string) {
-  const [comments, setComments] = useState<Comment[]>(() => getComments(postId));
+  const { provider } = useWallet();
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const addComment = useCallback(async (author: string, content: string): Promise<{ success: boolean; reason?: string }> => {
-    if (!content.trim() || !author) return { success: false, reason: 'Empty content' };
-    
-    setIsPosting(true);
+  const fetchComments = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const modResult = await moderateContent(content);
-      if (modResult.isFlagged) {
-        return { success: false, reason: modResult.reason };
-      }
-      // Upload to IPFS so content is permanent
-      let ipfsCid: string | undefined;
-      try {
-        ipfsCid = await uploadJSONToIPFS({ postId, author, content, timestamp: Date.now() });
-      } catch {
-        // IPFS upload optional — comment still saves locally
-        console.warn('[BlocX] IPFS upload failed, saving comment locally only.');
-      }
+      const contract = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, READ_PROVIDER);
+      const raw: any[] = await contract.getAllComments(BigInt(postId));
 
-      const newComment: Comment = {
-        id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        postId,
-        author,
-        content: content.trim(),
-        timestamp: Date.now(),
-        ipfsCid,
-      };
+      const resolved: Comment[] = await Promise.all(
+        raw.map(async (c) => {
+          let content = '';
+          try {
+            const url = resolveIPFSUrl(c.contentHash);
+            const res = await fetch(url);
+            if (res.ok) {
+              const json = await res.json();
+              content = json.content || '';
+            }
+          } catch {
+            content = '[Content unavailable]';
+          }
+          return {
+            id: c.id.toString(),
+            postId: c.postId.toString(),
+            author: c.author,
+            content,
+            timestamp: Number(c.timestamp) * 1000,
+            ipfsCid: c.contentHash,
+          };
+        })
+      );
 
-      const updated = [...getComments(postId), newComment];
-      saveComments(postId, updated);
-      setComments(updated);
-      
-      return { success: true };
+      setComments(resolved);
+    } catch (err) {
+      console.error('[BlocX] Failed to fetch comments:', err);
     } finally {
-      setIsPosting(false);
+      setIsLoading(false);
     }
   }, [postId]);
 
-  return { comments, addComment, isPosting };
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  const addComment = useCallback(
+    async (author: string, content: string): Promise<{ success: boolean; reason?: string }> => {
+      if (!content.trim() || !author || !provider) return { success: false, reason: 'Not connected' };
+
+      setIsPosting(true);
+      try {
+        const modResult = await moderateContent(content);
+        if (modResult.isFlagged) return { success: false, reason: modResult.reason };
+
+        let ipfsCid: string;
+        try {
+          ipfsCid = await uploadJSONToIPFS({ postId, author, content, timestamp: Date.now() });
+        } catch {
+          return { success: false, reason: 'IPFS upload failed. Please check your Pinata key.' };
+        }
+
+        const signer = await provider.getSigner();
+        const contract = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, signer);
+
+        const tx = await contract.createComment(BigInt(postId), ipfsCid, {
+          maxPriorityFeePerGas: parseUnits('30', 'gwei'),
+          maxFeePerGas: parseUnits('40', 'gwei'),
+        });
+        await tx.wait();
+
+        await fetchComments();
+        return { success: true };
+      } catch (err: any) {
+        console.error('[BlocX] Failed to post comment:', err);
+        return { success: false, reason: err.reason || 'Transaction failed' };
+      } finally {
+        setIsPosting(false);
+      }
+    },
+    [postId, provider, fetchComments]
+  );
+
+  const deleteComment = useCallback(
+    async (commentId: string): Promise<{ success: boolean; reason?: string }> => {
+      if (!provider) return { success: false, reason: 'Not connected' };
+
+      setDeletingId(commentId);
+      try {
+        const signer = await provider.getSigner();
+        const contract = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, signer);
+
+        const tx = await contract.deleteComment(BigInt(commentId), {
+          maxPriorityFeePerGas: parseUnits('30', 'gwei'),
+          maxFeePerGas: parseUnits('40', 'gwei'),
+        });
+        await tx.wait();
+
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        return { success: true };
+      } catch (err: any) {
+        console.error('[BlocX] Failed to delete comment:', err);
+        return { success: false, reason: err.reason || 'Transaction failed' };
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [provider]
+  );
+
+  return { comments, isLoading, isPosting, deletingId, addComment, deleteComment, refetch: fetchComments };
 }

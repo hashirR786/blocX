@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext.tsx'
 import { WalletProvider } from './contexts/WalletContext.tsx'
 import { TransactionProvider } from './contexts/TransactionContext.tsx'
 import { XMTPProvider } from './contexts/XMTPContext.tsx'
+import { NotificationsProvider } from './contexts/NotificationsContext.tsx'
 
 const queryClient = new QueryClient()
 
@@ -17,7 +18,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <WalletProvider>
           <XMTPProvider>
             <TransactionProvider>
-              <App />
+              <NotificationsProvider>
+                <App />
+              </NotificationsProvider>
             </TransactionProvider>
           </XMTPProvider>
         </WalletProvider>

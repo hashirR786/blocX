@@ -7,10 +7,12 @@ import ConnectWallet from '../common/ConnectWallet';
 import { X, Home, User, Bell, Zap, MessageSquare } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
+import { useNotifications } from '../../contexts/NotificationsContext';
 
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const { unreadCount } = useNotifications();
 
   return (
     <div className="min-h-screen bg-background flex justify-center relative overflow-x-hidden">
@@ -52,8 +54,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Zap className="w-6 h-6 fill-white" />
           </button>
 
-          <NavLink to="/notifications" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
+          <NavLink to="/notifications" className={({isActive}) => cn("p-3 rounded-xl transition-all relative", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
             <Bell className="w-6 h-6" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </NavLink>
           <NavLink to="/profile" className={({isActive}) => cn("p-3 rounded-xl transition-all", isActive ? "text-white bg-white/10" : "text-textMuted hover:text-white")}>
             <User className="w-6 h-6" />

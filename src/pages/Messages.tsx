@@ -7,31 +7,44 @@ import { IdentifierKind } from '@xmtp/browser-sdk';
 import type { Conversation, DecodedMessage } from '@xmtp/browser-sdk';
 import {
   MessageSquare, Send, ArrowLeft, Loader2, ShieldCheck,
-  Search, Plus, X, AlertCircle
+  Search, Plus, X, AlertCircle, RefreshCw
 } from 'lucide-react';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ConversationWithLastMsg {
   conversation: Conversation;
   lastMsg: DecodedMessage | null;
   peerInboxId: string;
-  peerAddress: string; // fallback/display
   unread: boolean;
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const shortAddr = (addr: string) => addr && addr.length > 15 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+const shortAddr = (s: string) =>
+  s && s.length > 15 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s;
 
 const formatTime = (date: Date) => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = Date.now() - date.getTime();
   if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 };
 
-// ─── Subcomponents ────────────────────────────────────────────────────────────
+const renderMsgContent = (content: any): string => {
+  if (typeof content === 'string') return content;
+  if (content?.text) return content.text;
+  if (content && typeof content === 'object') {
+    const k = Object.keys(content);
+    if (k.includes('initiatedByInboxId') || k.includes('addedInboxes')) return 'Conversation started';
+    return JSON.stringify(content);
+  }
+  return String(content ?? '');
+};
+
+const isApplicationMsg = (msg: DecodedMessage) =>
+  (msg as any).kind === 'application' || !(msg as any).kind;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 const EnableXMTP: React.FC<{ onEnable: () => void; loading: boolean; error: string | null }> = ({ onEnable, loading, error }) => (
   <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
@@ -67,7 +80,8 @@ const NewConversationModal: React.FC<{
   onClose: () => void;
   onStart: (address: string) => void;
   loading: boolean;
-}> = ({ onClose, onStart, loading }) => {
+  errorMsg: string | null;
+}> = ({ onClose, onStart, loading, errorMsg }) => {
   const [addr, setAddr] = useState('');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -84,8 +98,14 @@ const NewConversationModal: React.FC<{
           value={addr}
           onChange={(e) => setAddr(e.target.value)}
           placeholder="0x..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-textMuted focus:outline-none focus:border-primary/50 mb-4 text-sm font-mono"
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-textMuted focus:outline-none focus:border-primary/50 mb-3 text-sm font-mono"
         />
+        {errorMsg && (
+          <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-3">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            {errorMsg}
+          </div>
+        )}
         <button
           onClick={() => onStart(addr.trim())}
           disabled={!addr.trim() || loading}
@@ -116,20 +136,30 @@ const Messages: React.FC = () => {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [startingNewConvo, setStartingNewConvo] = useState(false);
+  const [newConvoError, setNewConvoError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileViewingChat, setIsMobileViewingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const streamCloserRef = useRef<any>(null);
+  // Keep a ref to active convo so stream callbacks can access current value
+  const activeConvoRef = useRef<Conversation | null>(null);
+  // Stream cleanup refs
+  const allMsgStreamRef = useRef<any>(null);
+  const newConvoStreamRef = useRef<any>(null);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
-  // Load all conversations
+  // ── Load all conversations ──────────────────────────────────────────────────
+  // CRITICAL: sync() before list() so network-delivered conversations appear
   const loadConversations = useCallback(async () => {
     if (!client) return;
     setLoadingConvos(true);
     try {
+      await client.conversations.sync();
       const convos = await client.conversations.list();
+
       const withLast: ConversationWithLastMsg[] = await Promise.all(
         convos.map(async (c: any) => {
           const lastMsg = await c.lastMessage();
@@ -137,21 +167,21 @@ const Messages: React.FC = () => {
           return {
             conversation: c as Conversation,
             peerInboxId,
-            peerAddress: peerInboxId,
             lastMsg: lastMsg || null,
             unread: false,
           };
         })
       );
-      // Sort newest first
+
       withLast.sort((a, b) => {
         const ta = a.lastMsg?.sentAt?.getTime() ?? (a.conversation as any).createdAt?.getTime() ?? 0;
         const tb = b.lastMsg?.sentAt?.getTime() ?? (b.conversation as any).createdAt?.getTime() ?? 0;
         return tb - ta;
       });
+
       setConversations(withLast);
     } catch (e) {
-      console.error('Failed to load conversations', e);
+      console.error('[XMTP] Failed to load conversations:', e);
     } finally {
       setLoadingConvos(false);
     }
@@ -161,96 +191,134 @@ const Messages: React.FC = () => {
     if (client) loadConversations();
   }, [client, loadConversations]);
 
-  // Load messages for an active conversation
+  // ── Global real-time streams ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!client) return;
+
+    // 1. Stream ALL incoming messages across every conversation.
+    //    - If the message is in the active conversation, append it to the chat.
+    //    - Always update the conversation list preview.
+    client.conversations.streamAllMessages({
+      onValue: (msg: DecodedMessage) => {
+        if (!isApplicationMsg(msg)) return;
+
+        // Add to active chat (dedup by id)
+        if (activeConvoRef.current && msg.conversationId === activeConvoRef.current.id) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          scrollToBottom();
+        }
+
+        // Update conversation list preview
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.conversation.id === msg.conversationId
+              ? {
+                  ...c,
+                  lastMsg: msg,
+                  unread: activeConvoRef.current?.id !== msg.conversationId,
+                }
+              : c
+          )
+        );
+      },
+    }).then((s: any) => {
+      allMsgStreamRef.current = s;
+    }).catch((e: any) => console.error('[XMTP] streamAllMessages error:', e));
+
+    // 2. Stream new incoming conversations (when someone starts a DM with you).
+    client.conversations.stream({
+      onValue: () => loadConversations(),
+    }).then((s: any) => {
+      newConvoStreamRef.current = s;
+    }).catch((e: any) => console.error('[XMTP] conversations.stream error:', e));
+
+    return () => {
+      allMsgStreamRef.current?.return?.();
+      newConvoStreamRef.current?.return?.();
+      allMsgStreamRef.current = null;
+      newConvoStreamRef.current = null;
+    };
+  }, [client, loadConversations, scrollToBottom]);
+
+  // ── Open a conversation ─────────────────────────────────────────────────────
+  // CRITICAL: sync() before messages() so messages sent while offline appear
   const openConversation = useCallback(async (convo: Conversation) => {
+    activeConvoRef.current = convo;
     setActiveConvo(convo);
     setIsMobileViewingChat(true);
     setLoadingMsgs(true);
+    setMessages([]);
     try {
+      await convo.sync();
       const msgs = await convo.messages();
-      setMessages(msgs as DecodedMessage[]);
-      scrollToBottom();
+      const appMsgs = (msgs as DecodedMessage[]).filter(isApplicationMsg);
+      setMessages(appMsgs);
+      setTimeout(scrollToBottom, 50);
     } catch (e) {
-      console.error('Failed to load messages', e);
+      console.error('[XMTP] Failed to open conversation:', e);
     } finally {
       setLoadingMsgs(false);
     }
-
-    // Stream new messages for this conversation
-    if (streamCloserRef.current) {
-      streamCloserRef.current.return?.();
-    }
-    
-    try {
-      const stream = await convo.stream({
-        onValue: (msg: DecodedMessage) => {
-          setMessages((prev) => [...prev, msg]);
-          scrollToBottom();
-        }
-      });
-      streamCloserRef.current = stream;
-    } catch (e) {
-      console.error('Failed to start stream', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (streamCloserRef.current) streamCloserRef.current.return?.();
-    };
-  }, []);
+  }, [scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
-  // Send a message
+  // ── Close active convo cleanup ──────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      activeConvoRef.current = null;
+    };
+  }, []);
+
+  // ── Send a message ──────────────────────────────────────────────────────────
   const sendMessage = async () => {
     if (!activeConvo || !inputText.trim() || sendingMsg) return;
+    const text = inputText.trim();
     setSendingMsg(true);
+    setInputText('');
     try {
-      await activeConvo.sendText(inputText.trim());
-      setInputText('');
-    } catch (e) {
-      console.error('Failed to send message', e);
+      await activeConvo.sendText(text);
+      // Optimistic local message — stream will deduplicate the network echo
+    } catch (e: any) {
+      console.error('[XMTP] Failed to send message:', e);
+      setInputText(text); // restore on failure
     } finally {
       setSendingMsg(false);
     }
   };
 
-  // Start a brand new conversation
+  // ── Start a new conversation ────────────────────────────────────────────────
   const startNewConversation = async (peerAddress: string) => {
     if (!client) return;
     setStartingNewConvo(true);
+    setNewConvoError(null);
     try {
-      // Resolve address to inboxId
       const formattedAddress = getAddress(peerAddress);
-      console.log(`[XMTP] Fetching inboxId for: ${formattedAddress}`);
+      console.log(`[XMTP] Resolving inboxId for: ${formattedAddress}`);
+
       const inboxId = await client.fetchInboxIdByIdentifier({
         identifier: formattedAddress,
-        identifierKind: IdentifierKind.Ethereum
+        identifierKind: IdentifierKind.Ethereum,
       });
-      
-      console.log(`[XMTP] InboxId result:`, inboxId);
 
       if (!inboxId) {
-        // Double check with canMessage
-        const canMsg = await client.canMessage([{
-          identifier: formattedAddress,
-          identifierKind: IdentifierKind.Ethereum
-        }]);
-        console.log(`[XMTP] canMessage check:`, canMsg);
-        
-        alert(`This address (${peerAddress}) has not enabled XMTP yet. Ask them to open their messages first.`);
+        setNewConvoError(`${shortAddr(peerAddress)} hasn't enabled XMTP yet. Ask them to open Messages first.`);
         return;
       }
-      
+
+      console.log(`[XMTP] Creating DM with inboxId: ${inboxId}`);
       const convo = await client.conversations.createDm(inboxId);
       setShowNewModal(false);
+      await loadConversations();
       await openConversation(convo);
-      loadConversations();
     } catch (e: any) {
-      alert(e.message || 'Failed to start conversation');
+      console.error('[XMTP] startNewConversation error:', e);
+      setNewConvoError(e.message || 'Failed to start conversation');
     } finally {
       setStartingNewConvo(false);
     }
@@ -260,7 +328,11 @@ const Messages: React.FC = () => {
     c.peerInboxId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ── Not connected ───────────────────────────────────────────────────────────
+  // Redirect guard
+  useEffect(() => {
+    if (client && location.pathname !== '/messages') navigate('/messages');
+  }, [client, location.pathname, navigate]);
+
   if (!address) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
@@ -271,48 +343,24 @@ const Messages: React.FC = () => {
     );
   }
 
-  const renderMsgContent = (content: any) => {
-    if (typeof content === 'string') return content;
-    if (content && typeof content.text === 'string') return content.text;
-    
-    // Filter out technical system messages (Group/DM changes)
-    if (content && typeof content === 'object') {
-      const keys = Object.keys(content);
-      if (keys.includes('initiatedByInboxId') || keys.includes('addedInboxes')) {
-        return "Conversation started";
-      }
-      return JSON.stringify(content);
-    }
-    
-    return String(content);
-  };
-
-  // Connect XMTP on mount is ready, ensure we stay on the messages page
-  useEffect(() => {
-    if (client && location.pathname !== '/messages') {
-      navigate('/messages');
-    }
-  }, [client, location.pathname, navigate]);
-
-  // ── XMTP not initialized ─────────────────────────────────────────────────
   if (!client) {
     return <EnableXMTP onEnable={initClient} loading={isConnectingXMTP} error={xmtpError} />;
   }
 
-  // ── Main layout ────────────────────────────────────────────────────────────
   return (
     <>
       {showNewModal && (
         <NewConversationModal
-          onClose={() => setShowNewModal(false)}
+          onClose={() => { setShowNewModal(false); setNewConvoError(null); }}
           onStart={startNewConversation}
           loading={startingNewConvo}
+          errorMsg={newConvoError}
         />
       )}
 
       <div className="flex h-full overflow-hidden rounded-2xl">
 
-        {/* ── Conversation List ─────────────────────────────────────────────── */}
+        {/* ── Conversation List ──────────────────────────────────────────────── */}
         <div className={`
           flex flex-col w-full md:w-80 lg:w-96 shrink-0 border-r border-white/5
           ${isMobileViewingChat ? 'hidden md:flex' : 'flex'}
@@ -320,23 +368,33 @@ const Messages: React.FC = () => {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-4 border-b border-white/5">
             <h2 className="text-lg font-bold text-white">Messages</h2>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="w-9 h-9 rounded-xl bg-primary/20 hover:bg-primary/40 flex items-center justify-center text-primary transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadConversations}
+                disabled={loadingConvos}
+                className="w-8 h-8 rounded-xl hover:bg-white/10 flex items-center justify-center text-textMuted hover:text-white transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingConvos ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => { setShowNewModal(true); setNewConvoError(null); }}
+                className="w-9 h-9 rounded-xl bg-primary/20 hover:bg-primary/40 flex items-center justify-center text-primary transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Search */}
           <div className="px-4 py-3 border-b border-white/5">
             <div className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2">
-              <Search className="w-4 h-4 text-textMuted" />
+              <Search className="w-4 h-4 text-textMuted shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by inboxId…"
+                placeholder="Search conversations…"
                 className="flex-1 bg-transparent text-white placeholder-textMuted text-sm focus:outline-none"
               />
             </div>
@@ -344,14 +402,16 @@ const Messages: React.FC = () => {
 
           {/* Conversation items */}
           <div className="flex-1 overflow-y-auto">
-            {loadingConvos ? (
+            {loadingConvos && conversations.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
             ) : filteredConvos.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
                 <MessageSquare className="w-10 h-10 text-textMuted/50" />
-                <p className="text-textMuted text-sm">No conversations yet.<br />Click <strong className="text-white">+</strong> to start one.</p>
+                <p className="text-textMuted text-sm">
+                  No conversations yet.<br />Click <strong className="text-white">+</strong> to start one.
+                </p>
               </div>
             ) : (
               filteredConvos.map((c) => (
@@ -359,22 +419,19 @@ const Messages: React.FC = () => {
                   key={c.conversation.id}
                   onClick={() => openConversation(c.conversation)}
                   className={`w-full flex items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-white/5 border-b border-white/5 ${
-                    activeConvo?.id === c.conversation.id ? 'bg-white/8' : ''
+                    activeConvo?.id === c.conversation.id ? 'bg-white/[0.08]' : ''
                   }`}
                 >
-                  {/* Avatar */}
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
                     {c.peerInboxId.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-white font-medium text-sm font-mono truncate">
+                      <span className={`text-sm font-mono truncate ${c.unread ? 'text-white font-semibold' : 'text-white/80'}`}>
                         {shortAddr(c.peerInboxId)}
                       </span>
                       {c.lastMsg?.sentAt && (
-                        <span className="text-textMuted text-xs shrink-0 ml-2">
-                          {formatTime(c.lastMsg.sentAt)}
-                        </span>
+                        <span className="text-textMuted text-xs shrink-0 ml-2">{formatTime(c.lastMsg.sentAt)}</span>
                       )}
                     </div>
                     <p className="text-textMuted text-xs truncate mt-0.5">
@@ -383,6 +440,7 @@ const Messages: React.FC = () => {
                         : 'No messages yet'}
                     </p>
                   </div>
+                  {c.unread && <span className="w-2 h-2 rounded-full bg-accent shrink-0" />}
                 </button>
               ))
             )}
@@ -390,12 +448,8 @@ const Messages: React.FC = () => {
         </div>
 
         {/* ── Chat Area ──────────────────────────────────────────────────────── */}
-        <div className={`
-          flex-1 flex flex-col min-w-0
-          ${!isMobileViewingChat ? 'hidden md:flex' : 'flex'}
-        `}>
+        <div className={`flex-1 flex flex-col min-w-0 ${!isMobileViewingChat ? 'hidden md:flex' : 'flex'}`}>
           {!activeConvo ? (
-            /* Empty state */
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
               <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
                 <MessageSquare className="w-8 h-8 text-textMuted" />
@@ -403,7 +457,7 @@ const Messages: React.FC = () => {
               <h3 className="text-white font-bold">Select a conversation</h3>
               <p className="text-textMuted text-sm">Choose from the left or start a new message.</p>
               <button
-                onClick={() => setShowNewModal(true)}
+                onClick={() => { setShowNewModal(true); setNewConvoError(null); }}
                 className="glass-button px-6 py-2.5 text-white font-medium flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" /> New Message
@@ -414,17 +468,17 @@ const Messages: React.FC = () => {
               {/* Chat Header */}
               <div className="flex items-center gap-3 px-4 py-4 border-b border-white/5">
                 <button
-                  onClick={() => { setIsMobileViewingChat(false); setActiveConvo(null); }}
+                  onClick={() => { setIsMobileViewingChat(false); setActiveConvo(null); activeConvoRef.current = null; }}
                   className="md:hidden text-textMuted hover:text-white transition-colors mr-1"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
-                  {conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId?.slice(0, 2).toUpperCase() || 'DM'}
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shrink-0">
+                  {conversations.find((c) => c.conversation.id === activeConvo.id)?.peerInboxId?.slice(0, 2).toUpperCase() || 'DM'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold text-sm font-mono truncate">
-                    {shortAddr(conversations.find(c => c.conversation.id === activeConvo.id)?.peerInboxId || (activeConvo as any).peerInboxId || 'Conversation')}
+                    {shortAddr(conversations.find((c) => c.conversation.id === activeConvo.id)?.peerInboxId || 'Conversation')}
                   </p>
                   <p className="text-textMuted text-xs flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-green-400" />
@@ -444,22 +498,21 @@ const Messages: React.FC = () => {
                     No messages yet. Say hi! 👋
                   </div>
                 ) : (
-                  messages.map((msg, i) => {
+                  messages.map((msg) => {
                     const isMe = msg.senderInboxId === client.inboxId;
                     return (
-                      <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         {!isMe && (
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xs mr-2 shrink-0 mt-auto mb-1">
                             {msg.senderInboxId.slice(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <div className={`max-w-[70%] group`}>
+                        <div className="max-w-[70%]">
                           <div className={`
                             px-4 py-2.5 rounded-2xl text-sm leading-relaxed
                             ${isMe
                               ? 'bg-primary/80 text-white rounded-br-sm'
-                              : 'bg-white/8 text-white rounded-bl-sm border border-white/10'
-                            }
+                              : 'bg-white/8 text-white rounded-bl-sm border border-white/10'}
                           `}>
                             {renderMsgContent(msg.content)}
                           </div>
@@ -503,5 +556,3 @@ const Messages: React.FC = () => {
 };
 
 export default Messages;
-
-
