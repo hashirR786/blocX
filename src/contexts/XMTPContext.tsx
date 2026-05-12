@@ -62,18 +62,34 @@ export const XMTPProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
       console.log("Initializing XMTP V3 client (Production)...");
-      // Use Client.create instead of Client.build to ensure the identity is 
-      // properly registered/activated on the network every time.
-      const xmtpClient = await Client.create(xmtpSigner, {
-        env: 'production',
-      } as any);
-      
+
+      // Retry up to 3 times — XMTP identity API can transiently fail
+      let xmtpClient: Client | null = null;
+      let lastErr: any;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          xmtpClient = await Client.create(xmtpSigner, { env: 'production' } as any);
+          break;
+        } catch (e: any) {
+          lastErr = e;
+          console.warn(`[XMTP] Attempt ${attempt} failed:`, e.message);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+      }
+
+      if (!xmtpClient) throw lastErr;
+
       console.log("XMTP V3 client initialized and activated successfully!");
       setClient(xmtpClient);
-      
+
     } catch (err: any) {
       console.error("CRITICAL: Failed to initialize XMTP client:", err);
-      setError(err.message || "Failed to initialize messaging");
+      const msg: string = err.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('Unknown error')) {
+        setError("Can't reach XMTP network. Check your connection and try again.");
+      } else {
+        setError(msg || "Failed to initialize messaging");
+      }
     } finally {
       setIsConnectingXMTP(false);
     }

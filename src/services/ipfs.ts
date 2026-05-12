@@ -68,10 +68,31 @@ export const uploadFileToIPFS = async (file: File): Promise<string> => {
   }
 };
 
-export const resolveIPFSUrl = (url: string | null | undefined): string => {
+// Gateway priority: Pinata (our upload provider) → dweb.link → ipfs.io
+const GATEWAYS = [
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+];
+
+export const resolveIPFSUrl = (url: string | null | undefined, gatewayIndex = 0): string => {
   if (!url) return "";
-  if (url.startsWith("ipfs://")) {
-    return url.replace("ipfs://", "https://ipfs.io/ipfs/");
-  }
+  const gw = GATEWAYS[Math.min(gatewayIndex, GATEWAYS.length - 1)];
+  if (url.startsWith("ipfs://")) return url.replace("ipfs://", gw);
+  if (url.startsWith("Qm") || url.startsWith("bafy")) return `${gw}${url}`;
   return url;
 };
+
+// Fetch with automatic gateway fallback
+export async function fetchIPFS(cid: string): Promise<Response> {
+  let lastError: Error = new Error('All IPFS gateways failed');
+  for (const gw of GATEWAYS) {
+    try {
+      const res = await fetch(`${gw}${cid.replace('ipfs://', '')}`, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) return res;
+    } catch (e) {
+      lastError = e as Error;
+    }
+  }
+  throw lastError;
+}

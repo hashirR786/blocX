@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Contract, JsonRpcProvider, getAddress } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
-import { resolveIPFSUrl } from '../services/ipfs';
+import { fetchIPFS, resolveIPFSUrl } from '../services/ipfs';
 
 export interface OnChainProfile {
   name: string;
@@ -32,7 +32,8 @@ async function fetchProfile(address: string): Promise<OnChainProfile | null> {
 
       const tokenId: bigint = await contract.addressToProfileId(normalized);
       const uri: string = await contract.tokenURI(tokenId);
-      const res = await fetch(resolveIPFSUrl(uri));
+      const cid = uri.startsWith('ipfs://') ? uri.slice(7) : uri;
+      const res = await fetchIPFS(cid);
       const data = await res.json();
 
       const profile: OnChainProfile = {

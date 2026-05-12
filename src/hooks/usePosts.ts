@@ -2,9 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../contexts/WalletContext';
 import { Contract, JsonRpcProvider, ZeroAddress } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
-import { resolveIPFSUrl } from '../services/ipfs';
+import { fetchIPFS, resolveIPFSUrl } from '../services/ipfs';
 
-// Dedicated read-only provider
 const READ_PROVIDER = new JsonRpcProvider('https://rpc-amoy.polygon.technology');
 
 export interface Post {
@@ -23,11 +22,11 @@ export interface Post {
 }
 
 function formatTime(timestampSeconds: number): string {
-  const timeDiff = Date.now() - timestampSeconds * 1000;
-  const minsAgo = Math.floor(timeDiff / 60000);
-  const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+  const diff = Date.now() - timestampSeconds * 1000;
+  const hoursAgo = Math.floor(diff / 3600000);
   if (hoursAgo > 24) return `${Math.floor(hoursAgo / 24)}d ago`;
   if (hoursAgo > 0) return `${hoursAgo}h ago`;
+  const minsAgo = Math.floor(diff / 60000);
   if (minsAgo > 0) return `${minsAgo}m ago`;
   return 'Just now';
 }
@@ -38,111 +37,61 @@ export const usePosts = () => {
   return useQuery({
     queryKey: ['posts', address],
     queryFn: async (): Promise<Post[]> => {
-      const socialContract = new Contract(
-        CONTRACT_ADDRESSES.social,
-        ABIs.social,
-        READ_PROVIDER
-      );
-      
-      const profileContract = new Contract(
-        CONTRACT_ADDRESSES.profile,
-        ABIs.profile,
-        READ_PROVIDER
-      );
+      const socialContract = new Contract(CONTRACT_ADDRESSES.social, ABIs.social, READ_PROVIDER);
 
-      // Instead of querying events (which requires eth_getLogs and has RPC block limits),
-      // we read posts directly from the public mapping by iterating IDs.
-      // Posts start at ID=1. We stop when the author is the zero address.
       const posts: Post[] = [];
-      const MAX_POSTS = 100; // Safety cap
-      
-      // Simple cache for profiles to avoid redundant IPFS/Contract calls
-      const profileCache: Record<string, {name: string, avatar: string}> = {};
-      
+      const MAX_POSTS = 100;
+
       console.log('[BlocX] Fetching posts by direct contract reads...');
 
       for (let postId = 1; postId <= MAX_POSTS; postId++) {
         try {
           const postData = await socialContract.posts(postId);
-          
-          // If author is zero address, this post doesn't exist — we've reached the end
-          if (!postData || postData.author === ZeroAddress || postData.author === '0x0000000000000000000000000000000000000000') {
+
+          if (!postData || postData.author === ZeroAddress) {
             console.log(`[BlocX] No post at ID ${postId}, stopping. Total: ${posts.length} post(s).`);
             break;
           }
 
-          // Skip soft-deleted posts
           if (postData.isDeleted) continue;
 
-          const author = postData.author;
-          const contentHash = postData.contentHash;
+          const author: string = postData.author;
+          const contentHash: string = postData.contentHash;
 
           let isLiked = false;
           if (address) {
             isLiked = await socialContract.hasLiked(postId, address);
           }
 
-          let content = 'Decentralized post';
+          let content = '';
           let media: string | null = null;
-          let authorName = 'Web3 User';
-          let authorAvatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${author}`;
-
-          // Check if it's the current user first (instant local load)
-          if (address && author.toLowerCase() === address.toLowerCase()) {
-            const localName = localStorage.getItem(`profileName_${address}`);
-            const localAvatar = localStorage.getItem(`profileAvatar_${address}`);
-            if (localName) authorName = localName;
-            if (localAvatar) authorAvatar = localAvatar;
-          } else {
-            // Check cache
-            if (profileCache[author]) {
-              authorName = profileCache[author].name;
-              authorAvatar = profileCache[author].avatar;
-            } else {
-              // Fetch from ProfileRegistry
-              try {
-                const hasProf = await profileContract.hasProfile(author);
-                if (hasProf) {
-                  const pHash = await profileContract.getProfile(author);
-                  const pUrl = resolveIPFSUrl(pHash);
-                  const pRes = await fetch(pUrl);
-                  if (pRes.ok) {
-                    const pMeta = await pRes.json();
-                    if (pMeta.name) authorName = pMeta.name;
-                    if (pMeta.avatar) authorAvatar = pMeta.avatar.startsWith('http') ? pMeta.avatar : resolveIPFSUrl(pMeta.avatar);
-                    profileCache[author] = { name: authorName, avatar: authorAvatar };
-                  }
-                }
-              } catch (e) {
-                console.warn(`[BlocX] Failed to fetch profile for ${author}`);
-              }
-            }
-          }
 
           if (contentHash) {
             try {
-              const ipfsUrl = resolveIPFSUrl(contentHash);
-              const response = await fetch(ipfsUrl);
-              if (response.ok) {
-                const metadata = await response.json();
-                content = metadata.content || content;
-                if (metadata.media) {
-                  media = metadata.media.startsWith('http')
-                    ? metadata.media
-                    : resolveIPFSUrl(metadata.media);
-                }
+              const cid = contentHash.startsWith('ipfs://')
+                ? contentHash.slice(7)
+                : contentHash;
+              const res = await fetchIPFS(cid);
+              const metadata = await res.json();
+              content = metadata.content || '';
+              if (metadata.media) {
+                media = metadata.media.startsWith('http')
+                  ? metadata.media
+                  : resolveIPFSUrl(metadata.media);
               }
-            } catch (ipfsError) {
-              console.warn(`[BlocX] IPFS fetch failed for post ${postId}:`, ipfsError);
+            } catch (err) {
+              console.warn(`[BlocX] IPFS fetch failed for post ${postId}:`, err);
             }
           }
 
+          // PostCard resolves name/avatar via useProfileData (on-chain IPFS lookup).
+          // We only store the address here so PostCard can show real data for all users.
           posts.push({
             id: postId.toString(),
             author: {
               address: author,
-              avatar: authorAvatar,
-              name: authorName,
+              avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${author}`,
+              name: '',
             },
             content,
             timestamp: formatTime(Number(postData.timestamp)),
@@ -157,7 +106,6 @@ export const usePosts = () => {
         }
       }
 
-      // Return newest first
       return posts.reverse();
     },
     enabled: true,
