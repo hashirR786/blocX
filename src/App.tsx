@@ -5,6 +5,7 @@ import Profile from './pages/Profile';
 import Governance from './pages/Governance';
 import Notifications from './pages/Notifications';
 import Messages from './pages/Messages';
+import UserProfile from './pages/UserProfile';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/user/:address" element={<UserProfile />} />
           <Route path="/governance" element={<Governance />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/messages" element={<Messages />} />

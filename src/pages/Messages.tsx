@@ -333,6 +333,18 @@ const Messages: React.FC = () => {
     if (client && location.pathname !== '/messages') navigate('/messages');
   }, [client, location.pathname, navigate]);
 
+  // Auto-open DM when navigated here with ?with=<address> (e.g. from user profile)
+  useEffect(() => {
+    if (!client) return;
+    const params = new URLSearchParams(location.search);
+    const withAddress = params.get('with');
+    if (!withAddress) return;
+    // Clear the query param so we don't re-trigger
+    navigate('/messages', { replace: true });
+    startNewConversation(withAddress);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, location.search]);
+
   if (!address) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
