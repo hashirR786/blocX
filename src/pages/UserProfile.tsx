@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, CheckCircle, Loader2, UserX } from 'lucide-react';
-import { useUserSearch, UserProfile as IUserProfile } from '../hooks/useUserSearch';
+import { useUserSearch } from '../hooks/useUserSearch';
+import type { UserProfile as IUserProfile } from '../hooks/useUserSearch';
 import { usePosts } from '../hooks/usePosts';
 import PostCard from '../components/post/PostCard';
 import { useWallet } from '../contexts/WalletContext';
@@ -122,7 +123,7 @@ const UserProfile: React.FC = () => {
         {/* Name / address */}
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           {displayName}
-          <CheckCircle className="w-5 h-5 text-accent" title="On-chain profile verified" />
+          <CheckCircle className="w-5 h-5 text-accent" />
         </h2>
         <p className="text-textMuted font-mono text-xs mt-0.5">
           {paramAddress?.slice(0, 10)}...{paramAddress?.slice(-6)}

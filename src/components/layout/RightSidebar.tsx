@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TrendingUp, Activity, ShieldCheck, Search, Loader2, UserX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useUserSearch, UserProfile } from '../../hooks/useUserSearch';
+import { useUserSearch } from '../../hooks/useUserSearch';
+import type { UserProfile } from '../../hooks/useUserSearch';
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
   let timer: ReturnType<typeof setTimeout>;

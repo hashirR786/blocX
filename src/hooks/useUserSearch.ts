@@ -87,9 +87,9 @@ export function useUserSearch() {
       );
 
       const ql = q.toLowerCase();
-      const filtered = (profiles.filter(Boolean) as UserProfile[]).filter(
-        p => p.name.toLowerCase().includes(ql) || p.address.toLowerCase().includes(ql)
-      );
+      const filtered = profiles
+        .filter((p): p is UserProfile => p !== null && p !== undefined)
+        .filter(p => p.name.toLowerCase().includes(ql) || p.address.toLowerCase().includes(ql));
 
       setResults(filtered.slice(0, 20));
     } catch (err) {
