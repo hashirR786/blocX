@@ -17,20 +17,24 @@ export function useWeb3News(): { news: NewsItem[]; loading: boolean } {
 
   useEffect(() => {
     let cancelled = false;
+    // Hacker News Algolia API — free, no key, CORS-open
     fetch(
-      'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=popular&limit=6&categories=Blockchain,ETH,Technology',
+      'https://hn.algolia.com/api/v1/search_by_date?query=blockchain+OR+web3+OR+ethereum+OR+polygon&tags=story&hitsPerPage=8',
       { signal: AbortSignal.timeout(8000) }
     )
       .then(r => r.json())
       .then((json: any) => {
         if (cancelled) return;
-        const items: NewsItem[] = (json.Data ?? []).map((d: any) => ({
-          id:          String(d.id),
-          title:       d.title,
-          url:         d.url,
-          source:      d.source_info?.name ?? d.source,
-          publishedOn: d.published_on,
-        }));
+        const items: NewsItem[] = (json.hits ?? [])
+          .filter((h: any) => h.url && h.title)   // skip Ask/Show HN without URLs
+          .slice(0, 6)
+          .map((h: any) => ({
+            id:          h.objectID,
+            title:       h.title,
+            url:         h.url,
+            source:      h.url ? new URL(h.url).hostname.replace('www.', '') : 'HN',
+            publishedOn: h.created_at_i,
+          }));
         setNews(items);
       })
       .catch(() => { /* silently skip on network error */ })
