@@ -52,6 +52,13 @@
   .glow-text {
     @apply text-transparent bg-clip-text bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4];
   }
+  .logo-script {
+    font-family: 'Dancing Script', cursive;
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4];
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+  }
 }
 
 /* Custom scrollbar */

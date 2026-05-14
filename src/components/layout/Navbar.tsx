@@ -11,7 +11,7 @@ const Navbar: React.FC = () => {
     <nav className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface md:bg-transparent md:border-none">
       <div className="flex items-center gap-2 md:hidden">
         <Menu className="w-6 h-6 text-textMain" />
-        <Link to="/" className="text-xl font-bold text-primary tracking-tighter">blocX</Link>
+        <Link to="/" className="text-2xl logo-script">blocX</Link>
       </div>
 
       {/* Spacer for desktop */}

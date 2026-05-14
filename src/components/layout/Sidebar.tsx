@@ -25,11 +25,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     <aside className="h-full w-full glass-panel flex flex-col items-center xl:items-start py-6 px-2 xl:px-5">
       {/* Logo */}
       <div className="w-full flex items-center justify-center xl:justify-start mb-8 px-2">
-        <h1 className="text-3xl font-extrabold glow-text tracking-tighter hidden xl:block">
+        <h1 className="text-4xl logo-script hidden xl:block">
           blocX
         </h1>
         <div className="xl:hidden w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-          <span className="text-white font-bold text-xl">X</span>
+          <span className="logo-script text-2xl" style={{ WebkitBackgroundClip: 'unset', backgroundClip: 'unset', color: 'white' }}>b</span>
         </div>
       </div>
 
