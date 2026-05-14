@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Contract, JsonRpcProvider, formatUnits } from 'ethers';
 import { CONTRACT_ADDRESSES, ABIs } from '../config/contracts';
 import { useWallet } from './WalletContext';
+import { getFollowedAddresses } from '../hooks/useFollows';
 
 const READ_PROVIDER = new JsonRpcProvider('https://rpc-amoy.polygon.technology');
 const CHUNK_SIZE = 4999;
@@ -10,7 +11,7 @@ const MAX_STORED = 100;
 
 export interface AppNotification {
   id: string;         // txHash-logIndex — globally unique
-  type: 'like' | 'comment' | 'reward';
+  type: 'like' | 'comment' | 'reward' | 'follow_post' | 'follow';
   message: string;
   subtext: string;
   timestamp: number;  // Unix ms
@@ -18,6 +19,7 @@ export interface AppNotification {
   postId: string;
   txHash: string;
   blockNumber: number;
+  actor?: string;     // wallet address of the person who triggered the notification
 }
 
 interface NotificationsContextValue {
@@ -136,6 +138,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               postId: (postId as bigint).toString(),
               txHash: e.transactionHash,
               blockNumber: e.blockNumber,
+              actor: liker as string,
             });
           }
         }
@@ -165,6 +168,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               postId: (postId as bigint).toString(),
               txHash: e.transactionHash,
               blockNumber: e.blockNumber,
+              actor: author as string,
             });
           }
         }
@@ -195,6 +199,67 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             txHash: e.transactionHash,
             blockNumber: e.blockNumber,
           });
+        }
+      }
+
+      // ── 5. Followed — someone followed you ────────────────────────────────
+      if (CONTRACT_ADDRESSES.follow) {
+        const followContract = new Contract(CONTRACT_ADDRESSES.follow, ABIs.follow, READ_PROVIDER);
+        const followResults = await Promise.allSettled(
+          chunks.map(([from, to]) =>
+            followContract.queryFilter(followContract.filters.Followed(null, address), from, to)
+          )
+        );
+        for (const r of followResults) {
+          if (r.status !== 'fulfilled') continue;
+          for (const e of r.value) {
+            if (!('args' in e)) continue;
+            const { follower } = e.args;
+            if ((follower as string).toLowerCase() === address.toLowerCase()) continue;
+            newNotifs.push({
+              id: `${e.transactionHash}-${e.index}`,
+              type: 'follow',
+              message: `${shortAddr(follower as string)} started following you`,
+              subtext: 'New follower',
+              timestamp: approxMs(e.blockNumber),
+              read: false,
+              postId: '',
+              txHash: e.transactionHash,
+              blockNumber: e.blockNumber,
+              actor: follower as string,
+            });
+          }
+        }
+      }
+
+      // ── 6. PostCreated by followed users ──────────────────────────────────
+      const followedAddrs = getFollowedAddresses(address).map(a => a.toLowerCase());
+      if (followedAddrs.length > 0) {
+        const followPostResults = await Promise.allSettled(
+          chunks.map(([from, to]) =>
+            contract.queryFilter(contract.filters.PostCreated(), from, to)
+          )
+        );
+        for (const r of followPostResults) {
+          if (r.status !== 'fulfilled') continue;
+          for (const e of r.value) {
+            if (!('args' in e)) continue;
+            const { postId, author } = e.args;
+            const authorLower = (author as string).toLowerCase();
+            if (!followedAddrs.includes(authorLower)) continue;
+            newNotifs.push({
+              id: `${e.transactionHash}-${e.index}`,
+              type: 'follow_post',
+              message: `${shortAddr(author as string)} posted something new`,
+              subtext: `Post #${(postId as bigint).toString()}`,
+              timestamp: approxMs(e.blockNumber),
+              read: false,
+              postId: (postId as bigint).toString(),
+              txHash: e.transactionHash,
+              blockNumber: e.blockNumber,
+              actor: author as string,
+            });
+          }
         }
       }
 

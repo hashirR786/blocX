@@ -82,6 +82,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Strings__factory>;
     getContractFactory(
+      name: "BlocXFollow",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.BlocXFollow__factory>;
+    getContractFactory(
       name: "BlocXGovernance",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.BlocXGovernance__factory>;
@@ -184,6 +188,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Strings>;
     getContractAt(
+      name: "BlocXFollow",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.BlocXFollow>;
+    getContractAt(
       name: "BlocXGovernance",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -273,6 +282,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
     deployContract(
+      name: "BlocXFollow",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BlocXFollow>;
+    deployContract(
       name: "BlocXGovernance",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.BlocXGovernance>;
@@ -374,6 +387,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
+    deployContract(
+      name: "BlocXFollow",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BlocXFollow>;
     deployContract(
       name: "BlocXGovernance",
       args: any[],

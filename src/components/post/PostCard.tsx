@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Heart, MessageSquare, Share2, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
+import { Heart, MessageSquare, Share2, MoreHorizontal, Trash2, Loader2, UserPlus, UserCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../../contexts/WalletContext';
@@ -10,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import CommentThread from './CommentThread';
 import type { Post } from '../../hooks/usePosts';
 import { useProfileData } from '../../hooks/useProfileData';
+import { useFollows } from '../../hooks/useFollows';
 
 interface PostCardProps {
   post: Post;
@@ -32,8 +34,17 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const { provider, address } = useWallet();
   const { setTxState, setTxMessage } = useTransaction();
   const queryClient = useQueryClient();
+  const { isFollowing, follow, unfollow, followLoading } = useFollows();
+  const navigate = useNavigate();
 
-  const isOwner = address && post.author.address.toLowerCase() === address.toLowerCase();
+  const isOwner      = address && post.author.address.toLowerCase() === address.toLowerCase();
+  const following    = isFollowing(post.author.address);
+  const thisFollowPending = followLoading === post.author.address.toLowerCase();
+
+  const goToProfile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(isOwner ? '/profile' : `/user/${post.author.address}`);
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -124,12 +135,13 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
       <div className="flex gap-4 relative z-10">
-        <div className="shrink-0">
+        {/* Clickable avatar → profile */}
+        <div className="shrink-0 cursor-pointer" onClick={goToProfile}>
           <img
             src={displayAvatar}
             alt="Avatar"
             crossOrigin="anonymous"
-            className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shadow-lg"
+            className="w-12 h-12 rounded-xl bg-[var(--border)] border border-white/10 shadow-lg hover:opacity-80 transition-opacity"
             onError={(e) => {
               (e.target as HTMLImageElement).src =
                 `https://api.dicebear.com/7.x/identicon/svg?seed=${post.author.address}`;
@@ -139,12 +151,34 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h4 className="font-bold text-white text-lg truncate tracking-tight">{displayName}</h4>
+            <div className="flex items-center gap-2 cursor-pointer" onClick={goToProfile}>
+              <h4 className="font-bold text-white text-lg truncate tracking-tight hover:underline">{displayName}</h4>
               <span className="text-sm text-textMuted font-mono">@{post.author.address.slice(0, 6)}</span>
               <span className="w-1 h-1 rounded-full bg-textMuted mx-1" />
               <span className="text-sm text-textMuted">{post.timestamp}</span>
             </div>
+
+            {/* Follow button — only for other users' posts */}
+            {!isOwner && address && (
+              <button
+                disabled={thisFollowPending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  following ? unfollow(post.author.address) : follow(post.author.address);
+                }}
+                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors disabled:opacity-60 ${
+                  following
+                    ? 'bg-white/5 border-white/20 text-textMuted hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
+                    : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+                }`}
+              >
+                {thisFollowPending
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : following
+                    ? <><UserCheck className="w-3 h-3" /> Following</>
+                    : <><UserPlus className="w-3 h-3" /> Follow</>}
+              </button>
+            )}
 
             {/* Options menu — only meaningful for post owner */}
             {isOwner && (

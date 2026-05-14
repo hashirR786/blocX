@@ -40,6 +40,8 @@ export type { SafeCast } from "./@openzeppelin/contracts/utils/math/SafeCast";
 export { SafeCast__factory } from "./factories/@openzeppelin/contracts/utils/math/SafeCast__factory";
 export type { Strings } from "./@openzeppelin/contracts/utils/Strings";
 export { Strings__factory } from "./factories/@openzeppelin/contracts/utils/Strings__factory";
+export type { BlocXFollow } from "./contracts/BlocXFollow";
+export { BlocXFollow__factory } from "./factories/contracts/BlocXFollow__factory";
 export type { BlocXGovernance } from "./contracts/BlocXGovernance";
 export { BlocXGovernance__factory } from "./factories/contracts/BlocXGovernance__factory";
 export type { BlocXProfile } from "./contracts/BlocXProfile";
