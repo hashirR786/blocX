@@ -271,7 +271,7 @@ Random and harmful inputs were provided during post creation to test the robustn
 # Contributors
 
 - Muhammad Rashid R
-- Muhammad Hashir
+- Muhammad Hashir R
 - Nirranjan Naarayan M R
 
 ---
