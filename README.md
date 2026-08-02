@@ -166,63 +166,6 @@ blocX/
 ├── docs/                  # SRS, DDS, UML diagrams
 └── README.md
 ```
-
----
-
-# Installation
-
-## 1. Clone Repository
-
-```bash
-git clone https://github.com/hashirR786/blocX.git
-```
-
----
-
-## 2. Navigate to Project
-
-```bash
-cd blocX
-```
-
----
-
-## 3. Install Dependencies
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Backend
-
-```bash
-cd backend
-npm install
-```
-
----
-
-# Running the Project
-
-## Start Frontend
-
-```bash
-npm run dev
-```
-
----
-
-## Start Backend
-
-```bash
-npm start
-```
-
----
-
 # MetaMask Setup
 
 1. Install MetaMask Extension
